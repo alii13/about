@@ -1,13 +1,256 @@
 body {
   margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
+  font-family: 'Poppins', sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
 }
 
 code {
   font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
     monospace;
+}
+.logo{
+  max-width: 160px;
+  max-height: 160px;
+}
+.nav-item{
+  padding: 0 0.6em 0 0.6em;
+}
+.nav-link{
+  
+  font-family: Poppins;
+  font-size: 20px;
+  font-weight: 600;
+  font-stretch: normal;
+  font-style: normal;
+  line-height: 1.5;
+  letter-spacing: normal;
+  text-align: left;
+  color: #263238;
+}
+.space{
+  margin-right: 7vmin;
+}
+.hero{
+  height: 100vh;
+}
+
+.heading{
+
+  font-family: Poppins;
+  font-size: 14vmin;
+  font-weight: 700;
+  font-stretch: normal;
+  font-style: normal;
+  line-height: 1.5;
+  letter-spacing: normal;
+  text-align: left;
+  color: #ff725e;
+
+}
+.heading1{
+  position: relative;
+  font-family: Poppins;
+  font-size: 14vmin;
+  font-weight: 700;
+  font-stretch: normal;
+  font-style: normal;
+  line-height: 1.5;
+  letter-spacing: normal;
+  text-align: left;
+  color: #ff725e;
+
+}
+.heading-title{
+  height:50%;
+}
+.light-heading { 
+  
+  
+  opacity: 0.1;
+  font-family: Poppins;
+  font-size: 27vmin;
+  font-weight: 900;
+  font-stretch: normal;
+  font-style: normal;
+  line-height: 1.5;
+  letter-spacing: normal;
+  text-align: left;
+  color: #ff725e;
+  
+}
+.light-heading2 { 
+  bottom: 81%;
+  opacity: 0.1;
+  font-family: Poppins;
+  font-size: 18vmin;
+  font-weight: 900;
+  font-stretch: normal;
+  font-style: normal;
+  line-height: 1.5;
+  letter-spacing: normal;
+  text-align: left;
+  color: #ff725e;
+  position: absolute;
+}
+.title-description{
+  text-align: justify;
+  max-width: 700px;
+}
+.title-description-mobile{
+  display: none;
+
+}
+#container {
+  position: relative;
+  width: 100%;
+  padding-bottom: 100%;
+}
+.concentric{
+ 
+}
+.circle{
+
+  height: 60vh;
+  width: 60vw;
+
+}
+
+#circle {
+  position: absolute;
+  width: 50%;
+  height: 50%;
+  background-color: #fff;
+  border:1px solid red;
+  border-radius: 50%;
+}
+
+#small-circle{
+  margin-top: 25%;
+  margin-left: 25%;
+  position: absolute;
+  width: 50%;
+  height: 50%;
+  border:1px solid red;
+  background-color: #fff;
+  border-radius: 50%;
+}
+.coders{
+  height:100vh;
+}
+
+*:focus {
+  outline: 0;
+  outline: none;
+}
+.justify{
+  text-align: justify;;
+}
+.card-heading{
+  font-family: Poppins;
+  font-weight: bold;
+  font-stretch: normal;
+  font-style: normal;
+  line-height: 1.51;
+  letter-spacing: normal;
+  text-align: left;
+  color: #ff725e;
+}
+p::selection {
+  background: #ff725e;
+  color: white;
+  ;
+}
+
+.card-icons{
+  font-size: 20px;
+ padding: 0em 0.7em 0 0.7em;;
+}
+.coder-content{
+  margin-top: 15vmin;
+}
+a {
+  text-decoration: none;
+  position: relative;
+  display: inline-block;
+}
+.box{
+  
+  background: #ff725e;
+  border-radius: 5px;;
+
+}
+a::after {
+  content: '';
+  width: 100%;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  height: 2px;
+  background: #ff725e;
+  transform: scaleX(0);
+  transition: transform .35s ease;
+}
+a:hover::after {
+  transform: scaleX(1);
+}
+@media(max-width:321px){
+ 
+}
+@media(max-width:426px){
+   .light-heading{
+    top: -50%;
+    bottom:unset;
+    font-size: 20vmin;
+  }
+  .light-heading2{
+    bottom:unset;
+    font-size: 15vmin;
+    top: -5%;
+  }
+  .heading1{
+    font-size: 10vmin;
+  }
+  .px-5{
+    padding: 1em !important;
+  }
+  .p-4{
+    padding:0.5em !important;
+  }
+  .coder-content{
+    padding:0;
+  }
+  .coders .container-fluid{
+    padding:0;
+  }
+  .profile-photo{
+    max-width:220px;
+    max-height:220px;
+  }
+  .profile-center{
+    display: flex;
+    justify-content: center;
+  }
+  .d-flex{
+    justify-content: center !important;
+  }
+  .team{
+    max-width: 340px;
+    max-height: 340px;
+    padding: 1em 0 1.5em 0;
+  }
+  .title-description{
+    display: none;
+  }
+  .title-description-mobile{
+    text-align: justify;
+    display: block;;
+  
+  }
+  .navbar-light .navbar-toggler{
+    color: rgba(0,0,0,.5);
+    border-color: white;
+  }
+
 }
