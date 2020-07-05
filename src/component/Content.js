@@ -4,13 +4,15 @@ import Coders from './Coders';
 import Designer from './Designer';
 import Writers from './Writers';
 
+
 function Content() {
     return (
-        <div className="p-4">
+        <div className="">
             <Hero/>
             <Coders/>
             <Designer/>
             <Writers/>
+            
         </div>
     )
 }

@@ -5,15 +5,15 @@ function Card(props) {
     const image=(props.image===undefined)?("Ellipse"):(props.image);
     
     return (
-        <div className="px-5">
+        <div className ="mx-5">
             <div className="row">
-              <div className="col-md-4 profile-center" style={{padding:"0px"}}>
-                  <img src={require(`../${image}.png`)} className="img-fluid profile-photo"  alt="member"/>
+              <div className="col-md-4 profile-center">
+                  <img src={require(`../${image}.png`)} className="img-fluid profile-photo"  alt="member" />
                   
               </div>
               <div className="col-md-8" style={{padding:"0px"}}>
                   
-                  <div className="container card-box">
+                  <div className="card-box">
                   <div className="d-flex justify-content-start">
                   <h4 className="card-heading">{name}</h4>
                   </div>
