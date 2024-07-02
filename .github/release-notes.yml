@@ -9,5 +9,4 @@ changelog:
   - title: ":hammer: Dependency Upgrades"
     labels: ["dependency-upgrade"]
   - title: ":star: All pull requests"
-    labels:
-      - '*'
+    labels: []
