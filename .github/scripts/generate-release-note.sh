@@ -31,4 +31,33 @@ fi
 
 # Format the release note
 release_date=$(date +"%A, %B %d, %Y")
-release_n
+release_note=":atlan: Release preparation announcement!\n"
+release_note+="Planned release date: $release_date\n"
+release_note+="Change-log:\n"
+
+for pr in $(echo "$prs" | jq -c '.'); do
+  pr_title=$(echo "$pr" | jq -r '.title')
+  pr_number=$(echo "$pr" | jq -r '.number')
+  pr_author=$(echo "$pr" | jq -r '.user.login')
+  pr_url=$(echo "$pr" | jq -r '.pull_request.html_url')
+  pr_body=$(echo "$pr" | jq -r '.body')
+
+  # Extract Jira tickets
+  jira_urls=$(echo "$pr_body" | grep -oP 'https://atlanhq\.atlassian\.net/browse/[A-Z0-9-]+')
+
+  # Prepare links
+  links="[GitHub]($pr_url)"
+  if [ -n "$jira_urls" ]; then
+    jira_links=$(echo "$jira_urls" | tr '\n' ', ')
+    jira_links=${jira_links%, } # Remove the trailing comma and space
+    links+=", [Jira]($jira_links)"
+  fi
+
+  release_note+="$pr_title ($pr_number)\n"
+  release_note+="Author: $pr_author\n"
+  release_note+="Links: $links\n\n"
+done
+
+# Save the release note to a file
+echo -e "$release_note" > ../release-note.txt
+echo "Release note generated and saved to release-note.txt"
