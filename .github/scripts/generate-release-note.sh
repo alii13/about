@@ -3,11 +3,6 @@
 # Ensure we are in the correct directory
 cd "$(dirname "$0")"
 
-# Debug: Log repository, milestone number, and milestone title
-echo "Repository: $REPO"
-echo "Milestone Number: $MILESTONE_NUMBER"
-echo "Milestone Title: $MILESTONE_TITLE"
-
 # Fetch PRs associated with the milestone
 prs_response=$(curl -s -H "Authorization: token $GITHUB_TOKEN" \
   "https://api.github.com/repos/$REPO/issues?milestone=$MILESTONE_NUMBER&state=closed")
@@ -46,20 +41,40 @@ for pr in "${pr_array[@]}"; do
   pr_body=$(echo "$pr" | jq -r '.body')
 
   # Extract Jira tickets
-  jira_urls=$(echo "$pr_body" | grep -oP 'https://atlanhq\.atlassian\.net/browse/[A-Z0-9-]+')
+  jira_urls=$(echo "$pr_body" | grep -oP 'https://atlanhq\.atlassian\.net/browse/[A-Z0-9-]+' | sort -u)
+
+  # Extract Slack links
+  slack_urls=$(echo "$pr_body" | grep -oP 'https://atlanhq\.slack\.com/archives/[A-Z0-9-]+' | sort -u)
+
 
   # Prepare links
   links="[GitHub]($pr_url)"
+
   if [ -n "$jira_urls" ]; then
-    jira_links=$(echo "$jira_urls" | tr '\n' ', ')
-    jira_links=${jira_links%, } # Remove the trailing comma and space
-    links+=", [Jira]($jira_links)"
+    jira_links=""
+    counter=1
+    for jira_url in $jira_urls; do
+      jira_links+=", [Jira$counter]($jira_url)"
+      counter=$((counter + 1))
+    done
+    links+="$jira_links"
+  fi
+
+    # Add Slack links
+  if [ -n "$slack_urls" ]; then
+    slack_links=""
+    counter=1
+    for slack_url in $slack_urls; do
+      slack_links+=", [Slack$counter]($slack_url)"
+      counter=$((counter + 1))
+    done
+    links+="$slack_links"
   fi
 
   # Append PR details to the release note
-  release_note+="$pr_title ($pr_number)\n"
-  release_note+="Author: @$pr_author\n"
-  release_note+="Links: $links\n\n"
+  release_note+="* $pr_title ($pr_number)\n"
+  release_note+="  - Author: $pr_author\n"
+  release_note+="  - Links: $links\n\n"
   
 done
 
