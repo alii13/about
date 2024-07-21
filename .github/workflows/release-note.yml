@@ -27,12 +27,13 @@ jobs:
       id: read_release_note
       run: |
         release_note=$(cat .github/release-note.txt)
-        echo "::set-output name=release_note::$release_note"
+        echo "release_note=$release_note" >> $GITHUB_ENV
 
     - name: Create Pull Request
       id: pr1
       run: |
         echo "Creating PR from demo-branch to master..."
-        gh pr create --base master --head demo-branch --title "Merge ``demo-branch`` into ``master``" --body "${{ steps.read_release_note.outputs.release_note }}"
+        gh pr create --base master --head demo-branch --title "Merge ``demo-branch`` into ``master``" --body "$release_note"
       env:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        release_note: ${{ steps.read_release_note.outputs.release_note }}
