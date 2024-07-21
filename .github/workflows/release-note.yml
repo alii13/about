@@ -26,7 +26,7 @@ jobs:
     - name: Read Release Note
       id: read_release_note
       run: |
-        release_note=$(cat .github/scripts/release-note.txt)
+        release_note=$(cat ./release-note.txt)
         echo "::set-output name=release_note::$release_note"
 
     - name: Create Pull Request
