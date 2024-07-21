@@ -109,3 +109,11 @@ echo -e "$release_note"
 # Save the release note to a file
 echo -e "$release_note" > .github/scripts/release-note.txt
 echo "Release note generated and saved to release-note.txt"
+
+# Confirm the file exists and log its contents
+if [ -f "$output_file" ]; then
+  echo "File $output_file exists."
+  cat "$output_file"
+else
+  echo "File $output_file does not exist."
+fi
