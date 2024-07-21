@@ -106,15 +106,14 @@ done
 # Print the release note to the console
 echo -e "$release_note"
 
-# Save the release note to a file in the current directory
-output_file="${GITHUB_WORKSPACE}/.github/scripts/release-note.txt"
-echo -e "$release_note" > "$output_file"
-echo "Release note generated and saved to $output_file"
+# Save the release note to a file
+echo -e "$release_note" > ../release-note.txt
+echo "Release note generated and saved to release-note.txt"
 
 # Confirm the file exists and log its contents
-if [ -f "$output_file" ]; then
-  echo "File $output_file exists."
-  cat "$output_file"
+if [ -f "$release_note" ]; then
+  echo "File $release_note exists."
+  cat "$release_note"
 else
-  echo "File $output_file does not exist."
+  echo "File $release_note does not exist."
 fi
