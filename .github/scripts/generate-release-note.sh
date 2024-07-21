@@ -98,8 +98,8 @@ for pr in "${pr_array[@]}"; do
 
   # Append PR details to the release note
   release_note+="- $pr_title (#$pr_number)\n"
-  release_note+=" - Author: @$pr_author\n"
-  release_note+=" - Links: $links\n\n"
+  release_note+="   - Author: @$pr_author\n"
+  release_note+="   - Links: $links\n\n"
   
 done
 
