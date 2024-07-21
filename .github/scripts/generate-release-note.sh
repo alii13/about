@@ -12,8 +12,6 @@ echo "Milestone Title: $MILESTONE_TITLE"
 prs_response=$(curl -s -H "Authorization: token $GITHUB_TOKEN" \
   "https://api.github.com/repos/$REPO/issues?milestone=$MILESTONE_NUMBER&state=closed")
 
-# Log the response for debugging
-echo "PRs response: $prs_response"
 
 # Check if prs_response is empty or invalid
 if [ -z "$prs_response" ] || ! echo "$prs_response" | jq empty > /dev/null 2>&1; then
@@ -37,9 +35,7 @@ release_note+="Planned release date: $release_date\n"
 release_note+="Change-log:\n"
 
 # Loop through the PRs
-echo "$prs" | while read -r pr; do
-  echo "Processing PR: $pr"  # Debug: Log each PR
-  
+echo "$prs" | while IFS= read -r pr; do
   pr_title=$(echo "$pr" | jq -r '.title')
   pr_number=$(echo "$pr" | jq -r '.number')
   pr_author=$(echo "$pr" | jq -r '.user.login')
@@ -59,9 +55,14 @@ echo "$prs" | while read -r pr; do
     links+=", [Jira]($jira_links)"
   fi
 
+  # Append PR details to the release note
   release_note+="$pr_title ($pr_number)\n"
   release_note+="Author: $pr_author\n"
   release_note+="Links: $links\n\n"
+  
+  # Debug: Log current release note content
+  echo "Current release note content:"
+  echo -e "$release_note"
 done
 
 # Print the release note to the console
