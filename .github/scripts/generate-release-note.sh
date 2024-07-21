@@ -38,11 +38,15 @@ release_note+="Change-log:\n"
 
 # Loop through the PRs
 echo "$prs" | while read -r pr; do
+  echo "Processing PR: $pr"  # Debug: Log each PR
+  
   pr_title=$(echo "$pr" | jq -r '.title')
   pr_number=$(echo "$pr" | jq -r '.number')
   pr_author=$(echo "$pr" | jq -r '.user.login')
   pr_url=$(echo "$pr" | jq -r '.pull_request.html_url')
   pr_body=$(echo "$pr" | jq -r '.body')
+
+  echo "Title: $pr_title, Number: $pr_number, Author: $pr_author, URL: $pr_url"  # Debug: Log PR details
 
   # Extract Jira tickets
   jira_urls=$(echo "$pr_body" | grep -oP 'https://atlanhq\.atlassian\.net/browse/[A-Z0-9-]+')
