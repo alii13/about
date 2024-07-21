@@ -23,11 +23,16 @@ jobs:
       run: |
         bash .github/scripts/generate-release-note.sh
 
+    - name: Read Release Note
+      id: read_release_note
+      run: |
+        release_note=$(cat .github/release-note.txt)
+        echo "::set-output name=release_note::$release_note"
+
     - name: Create Pull Request
-      uses: peter-evans/create-pull-request@v3
-      with:
-        token: ${{ secrets.GITHUB_TOKEN }}
-        base: master
-        branch: demo-branch
-        title: "Merge demo-branch into master"
-        body-path: .github/release-note.txt
+      id: pr1
+      run: |
+        echo "Creating PR from demo-branch to master..."
+        gh pr create --base master --head demo-branch --title "Merge ``demo-branch`` into ``master``" --body "${{ steps.read_release_note.outputs.release_note }}"
+      env:
+        GH_TOKEN: ${{ secrets.ORG_PAT_GITHUB }}
