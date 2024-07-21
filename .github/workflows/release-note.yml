@@ -23,18 +23,10 @@ jobs:
       run: |
         bash .github/scripts/generate-release-note.sh
 
-    - name: Read Release Note
-      id: read_release_note
-      run: |
-        echo "release_note<<EOF" >> $GITHUB_ENV
-        cat .github/release-note.txt >> $GITHUB_ENV
-        echo "EOF" >> $GITHUB_ENV
-
-    - name: Create Pull Request
-      id: pr1
-      run: |
-        echo "Creating PR from demo-branch to master..."
-        gh pr create --base master --head demo-branch --title "Merge ``demo-branch`` into ``master``" --body "$release_note"
-      env:
-        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        release_note: ${{ steps.read_release_note.outputs.release_note }}
+    - name: Upload Release Note
+      uses: actions/upload-artifact@v3
+      with:
+        name: release-note
+        path: .github/release-note.txt
+        retention-days: 7
+        
