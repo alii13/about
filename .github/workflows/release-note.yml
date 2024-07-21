@@ -1,0 +1,24 @@
+name: Generate Release Note
+
+on:
+  milestone:
+    types: [closed]
+
+jobs:
+  generate-release-note:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+
+    - name: Install jq
+      run: sudo apt-get install jq
+
+    - name: Generate Release Note
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        REPO: ${{ github.repository }}
+        MILESTONE_TITLE: ${{ github.event.milestone.title }}
+      run: |
+        chmod +x .github/scripts/generate-release-note.sh
+        ./.github/scripts/generate-release-note.sh
