@@ -23,12 +23,6 @@ jobs:
       run: |
         bash .github/scripts/generate-release-note.sh
 
-    - name: Read Release Note
-      id: read_release_note
-      run: |
-        release_note=$(cat .github/release-note.txt)
-        echo "::set-output name=release_note::$release_note"
-
     - name: Create Pull Request
       uses: peter-evans/create-pull-request@v3
       with:
@@ -36,4 +30,4 @@ jobs:
         base: master
         branch: demo-branch
         title: "Merge demo-branch into master"
-        body: ${{ steps.read_release_note.outputs.release_note }}
+        body-path: .github/release-note.txt
