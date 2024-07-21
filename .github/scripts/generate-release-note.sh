@@ -23,8 +23,33 @@ if [ -z "$prs" ]; then
   exit 1
 fi
 
+# Calculate the nearest upcoming Tuesday or Thursday
+today=$(date +%u)
+if [ "$today" -eq 2 ]; then
+  # Today is Tuesday
+  next_tuesday=$(date -d "today" +"%A, %B %d, %Y")
+  next_thursday=$(date -d "Thursday" +"%A, %B %d, %Y")
+elif [ "$today" -eq 4 ]; then
+  # Today is Thursday
+  next_tuesday=$(date -d "Tuesday" +"%A, %B %d, %Y")
+  next_thursday=$(date -d "today" +"%A, %B %d, %Y")
+else
+  next_tuesday=$(date -d "next Tuesday" +"%A, %B %d, %Y")
+  next_thursday=$(date -d "next Thursday" +"%A, %B %d, %Y")
+fi
+
+# Determine which date is closer
+today_epoch=$(date +%s)
+tuesday_epoch=$(date -d "$next_tuesday" +%s)
+thursday_epoch=$(date -d "$next_thursday" +%s)
+
+if [ $((tuesday_epoch - today_epoch)) -le $((thursday_epoch - today_epoch)) ]; then
+  release_date=$next_tuesday
+else
+  release_date=$next_thursday
+fi
+
 # Initialize the release note
-release_date=$(date +"%A, %B %d, %Y")
 release_note="## Release preparation announcement!\n"
 release_note+="### Planned release date: $release_date\n"
 release_note+="### Change-log:\n"
