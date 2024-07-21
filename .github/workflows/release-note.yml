@@ -33,7 +33,7 @@ jobs:
       uses: peter-evans/create-pull-request@v3
       with:
         token: ${{ secrets.GITHUB_TOKEN }}
-        base: staging
-        head: develop
-        title: "Merge `develop` into `staging`"
+        base: master
+        head: demo-branch
+        title: "Merge `demo-branch` into `master`"
         body: ${{ steps.read_release_note.outputs.release_note }}
