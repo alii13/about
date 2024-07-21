@@ -28,3 +28,4 @@ jobs:
       with:
         name: release-note
         path: .github/release-note.txt
+        retention-days: 7

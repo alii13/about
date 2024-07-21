@@ -30,9 +30,9 @@ fi
 
 # Initialize the release note
 release_date=$(date +"%A, %B %d, %Y")
-release_note=":atlan: Release preparation announcement!\n"
-release_note+="Planned release date: $release_date\n"
-release_note+="Change-log:\n"
+release_note="## Release preparation announcement!\n"
+release_note+="### Planned release date: $release_date\n"
+release_note+="### Change-log:\n"
 
 # Read PRs into an array
 readarray -t pr_array <<< "$prs"
@@ -58,7 +58,7 @@ for pr in "${pr_array[@]}"; do
 
   # Append PR details to the release note
   release_note+="$pr_title ($pr_number)\n"
-  release_note+="Author: $pr_author\n"
+  release_note+="Author: @$pr_author\n"
   release_note+="Links: $links\n\n"
   
 done
