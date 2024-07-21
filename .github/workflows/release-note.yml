@@ -27,4 +27,4 @@ jobs:
       uses: actions/upload-artifact@v3
       with:
         name: release-note
-        path: release-note.txt
+        path: .github/release-note.txt
