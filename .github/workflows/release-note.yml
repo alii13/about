@@ -34,6 +34,6 @@ jobs:
       with:
         token: ${{ secrets.GITHUB_TOKEN }}
         base: master
-        head: demo-branch
+        branch: demo-branch
         title: "Merge demo-branch into master"
         body: ${{ steps.read_release_note.outputs.release_note }}
