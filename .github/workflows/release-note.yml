@@ -22,12 +22,12 @@ jobs:
         MILESTONE_TITLE: ${{ github.event.milestone.title }}
       run: |
         bash .github/scripts/generate-release-note.sh
-  
+
     - name: Read Release Note
       id: read_release_note
       run: |
         release_note=$(cat .github/release-note.txt)
-        echo "release_note=$release_note" >> $GITHUB_ENV
+        echo "::set-output name=release_note::$release_note"
 
     - name: Create Pull Request
       uses: peter-evans/create-pull-request@v3
@@ -36,4 +36,4 @@ jobs:
         base: staging
         head: develop
         title: "Merge `develop` into `staging`"
-        body: ${{ release_note }}
+        body: ${{ steps.read_release_note.outputs.release_note }}
