@@ -12,7 +12,7 @@ jobs:
       uses: actions/checkout@v3
 
     - name: Install jq
-      run: sudo apt-get install jq
+      run: sudo apt-get install -y jq
 
     - name: Generate Release Note
       env:
@@ -22,3 +22,9 @@ jobs:
       run: |
         chmod +x .github/scripts/generate-release-note.sh
         ./.github/scripts/generate-release-note.sh
+
+    - name: Upload Release Note
+      uses: actions/upload-artifact@v3
+      with:
+        name: release-note
+        path: release-note.txt

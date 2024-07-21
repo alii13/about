@@ -1,14 +1,34 @@
 #!/bin/bash
 
 # Fetch the milestone number
-milestone_number=$(curl -s -H "Authorization: token $GITHUB_TOKEN" \
-  "https://api.github.com/repos/$REPO/milestones" | \
+milestone_response=$(curl -s -H "Authorization: token $GITHUB_TOKEN" \
+  "https://api.github.com/repos/$REPO/milestones")
+
+echo "Milestone response: $milestone_response"
+
+milestone_number=$(echo "$milestone_response" | \
   jq -r --arg title "$MILESTONE_TITLE" '.[] | select(.title == $title) | .number')
 
+if [ -z "$milestone_number" ]; then
+  echo "Error: Milestone with title '$MILESTONE_TITLE' not found."
+  exit 1
+fi
+
+echo "Milestone number: $milestone_number"
+
 # Fetch PRs associated with the milestone
-prs=$(curl -s -H "Authorization: token $GITHUB_TOKEN" \
-  "https://api.github.com/repos/$REPO/pulls?state=closed" | \
+prs_response=$(curl -s -H "Authorization: token $GITHUB_TOKEN" \
+  "https://api.github.com/repos/$REPO/pulls?state=closed")
+
+echo "PRs response: $prs_response"
+
+prs=$(echo "$prs_response" | \
   jq -r --arg milestone_number "$milestone_number" '[.[] | select(.milestone.number == ($milestone_number|tonumber))]')
+
+if [ -z "$prs" ]; then
+  echo "No PRs found for milestone number $milestone_number."
+  exit 1
+fi
 
 # Format the release note
 release_date=$(date +"%A, %B %d, %Y")
@@ -29,7 +49,9 @@ for pr in $(echo "$prs" | jq -c '.[]'); do
   # Prepare links
   links="[GitHub]($pr_url)"
   if [ -n "$jira_urls" ]; then
-    links+=", [Jira]($jira_urls)"
+    jira_links=$(echo "$jira_urls" | tr '\n' ', ')
+    jira_links=${jira_links%, } # Remove the trailing comma and space
+    links+=", [Jira]($jira_links)"
   fi
 
   release_note+="$pr_title ($pr_number)\n"
@@ -37,4 +59,6 @@ for pr in $(echo "$prs" | jq -c '.[]'); do
   release_note+="Links: $links\n\n"
 done
 
-echo -e "$release_note"
+# Save the release note to a file
+echo -e "$release_note" > release-note.txt
+echo "Release note generated and saved to release-note.txt"
