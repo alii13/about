@@ -12,6 +12,8 @@ echo "Milestone Title: $MILESTONE_TITLE"
 prs_response=$(curl -s -H "Authorization: token $GITHUB_TOKEN" \
   "https://api.github.com/repos/$REPO/issues?milestone=$MILESTONE_NUMBER&state=closed")
 
+# Log the response for debugging
+echo "PRs response: $prs_response"
 
 # Check if prs_response is empty or invalid
 if [ -z "$prs_response" ] || ! echo "$prs_response" | jq empty > /dev/null 2>&1; then
@@ -34,8 +36,13 @@ release_note=":atlan: Release preparation announcement!\n"
 release_note+="Planned release date: $release_date\n"
 release_note+="Change-log:\n"
 
-# Loop through the PRs
-echo "$prs" | while IFS= read -r pr; do
+# Read PRs into an array
+readarray -t pr_array <<< "$prs"
+
+# Loop through the PR array
+for pr in "${pr_array[@]}"; do
+  echo "Processing PR: $pr"  # Debug: Log each PR
+  
   pr_title=$(echo "$pr" | jq -r '.title')
   pr_number=$(echo "$pr" | jq -r '.number')
   pr_author=$(echo "$pr" | jq -r '.user.login')
