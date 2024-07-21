@@ -106,9 +106,10 @@ done
 # Print the release note to the console
 echo -e "$release_note"
 
-# Save the release note to a file
-echo -e "$release_note" > .github/scripts/release-note.txt
-echo "Release note generated and saved to release-note.txt"
+# Save the release note to a file in the current directory
+output_file="${GITHUB_WORKSPACE}/.github/scripts/release-note.txt"
+echo -e "$release_note" > "$output_file"
+echo "Release note generated and saved to $output_file"
 
 # Confirm the file exists and log its contents
 if [ -f "$output_file" ]; then
