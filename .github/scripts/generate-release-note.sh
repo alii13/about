@@ -21,7 +21,8 @@ if [ -z "$prs_response" ] || ! echo "$prs_response" | jq empty > /dev/null 2>&1;
   exit 1
 fi
 
-prs=$(echo "$prs_response" | jq -r '.[] | select(.pull_request)')
+# Extract PRs from the response
+prs=$(echo "$prs_response" | jq -c '.[] | select(.pull_request != null)')
 
 # Check if prs is empty
 if [ -z "$prs" ]; then
@@ -29,13 +30,14 @@ if [ -z "$prs" ]; then
   exit 1
 fi
 
-# Format the release note
+# Initialize the release note
 release_date=$(date +"%A, %B %d, %Y")
 release_note=":atlan: Release preparation announcement!\n"
 release_note+="Planned release date: $release_date\n"
 release_note+="Change-log:\n"
 
-for pr in $(echo "$prs" | jq -c '.'); do
+# Loop through the PRs
+echo "$prs" | while read -r pr; do
   pr_title=$(echo "$pr" | jq -r '.title')
   pr_number=$(echo "$pr" | jq -r '.number')
   pr_author=$(echo "$pr" | jq -r '.user.login')
