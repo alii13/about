@@ -36,4 +36,4 @@ jobs:
         base: staging
         head: develop
         title: "Merge `develop` into `staging`"
-        body: ${{ env.release_note }}
+        body: ${{ release_note }}
