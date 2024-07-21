@@ -18,6 +18,7 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         REPO: ${{ github.repository }}
+        MILESTONE_NUMBER: ${{ github.event.milestone.number }}
         MILESTONE_TITLE: ${{ github.event.milestone.title }}
       run: |
         bash .github/scripts/generate-release-note.sh
