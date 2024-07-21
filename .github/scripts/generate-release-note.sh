@@ -60,6 +60,9 @@ echo "$prs" | while read -r pr; do
   release_note+="Links: $links\n\n"
 done
 
+# Print the release note to the console
+echo -e "$release_note"
+
 # Save the release note to a file
 echo -e "$release_note" > ../release-note.txt
 echo "Release note generated and saved to release-note.txt"
