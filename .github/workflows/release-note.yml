@@ -20,8 +20,7 @@ jobs:
         REPO: ${{ github.repository }}
         MILESTONE_TITLE: ${{ github.event.milestone.title }}
       run: |
-        chmod +x .github/scripts/generate-release-note.sh
-        ./.github/scripts/generate-release-note.sh
+        bash .github/scripts/generate-release-note.sh
 
     - name: Upload Release Note
       uses: actions/upload-artifact@v3
