@@ -107,5 +107,9 @@ done
 echo -e "$release_note"
 
 # Save the release note to a file
+<<<<<<< Updated upstream
 echo -e "$release_note" > ../release-note.txt
+=======
+echo -e "$release_note" > .github/scripts/release-note.txt
+>>>>>>> Stashed changes
 echo "Release note generated and saved to release-note.txt"
