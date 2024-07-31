@@ -1,0 +1,48 @@
+name: Staging Workflow
+on:
+  push:
+    branches:
+      - staging
+permissions:
+  contents: read
+
+jobs:
+  sync-pr-creation:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+      
+      - name: Set up Git
+        run: |
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+
+      - name: Fetch develop branch
+        run: |
+          git fetch origin develop:develop
+
+      - name: Fetch staging branch
+        run: |
+          git fetch origin staging:staging
+      
+      - name: Check if develop is behind staging and create PR if needed
+        id: pr1
+        run: |
+          COMMITS_DIFF=$(git rev-list --left-right --count develop...staging | awk '{print $2}')
+          if [ "$COMMITS_DIFF" -gt 0 ]; then
+            PR_EXISTS1=$(gh pr list --base develop --head staging-develop-sync --state open --json id --jq '.[].id')
+            if [ -z "$PR_EXISTS1" ]; then
+              echo "Creating branch and PR from staging to develop..."
+              git checkout staging
+              git checkout -b staging-develop-sync
+              git push origin staging-develop-sync
+              gh pr create --base develop --head staging-develop-sync --title "Merge ``staging-develop-sync`` into ``develop``" --body "Automated PR sync from ``staging-develop-sync`` to ``develop``"
+            else
+              echo "PR from staging-develop-sync to staging already exists."
+            fi
+          else
+            echo "staging is already up to date with develop."
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

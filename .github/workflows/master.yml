@@ -1,0 +1,47 @@
+name: Production Workflow
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  #steps:
+  sync-pr-creation:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+      
+      - name: Set up Git
+        run: |
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+
+      - name: Fetch staging branch
+        run: |
+          git fetch origin staging:staging
+
+      - name: Fetch main branch
+        run: |
+          git fetch origin main:main
+
+      - name: Check if staging is behind main and create PR if needed
+        id: pr1
+        run: |
+          COMMITS_DIFF=$(git rev-list --left-right --count staging...main | awk '{print $2}')
+          if [ "$COMMITS_DIFF" -gt 0 ]; then
+            PR_EXISTS1=$(gh pr list --base staging --head staging-main-sync --state open --json id --jq '.[].id')
+            if [ -z "$PR_EXISTS1" ]; then
+              echo "Creating branch and PR from main to staging..."
+              git checkout main
+              git checkout -b staging-main-sync
+              git push origin staging-main-sync
+              gh pr create --base staging --head staging-main-sync --title "Merge ``staging-main-sync`` into ``staging``" --body "Automated PR sync from ``staging-main-sync`` to ``staging``"
+            else
+              echo "PR from staging-main-sync to staging already exists."
+            fi
+          else
+            echo "staging is already up to date with main."
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
