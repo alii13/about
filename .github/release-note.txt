@@ -1,0 +1,24 @@
+## Release preparation announcement!
+### Planned release date: Tuesday, July 23, 2024
+### Change-log:
+- chore: sample space (#18)
+   - Author: @alii13
+   - Links: [GitHub](https://github.com/alii13/about/pull/18), [Jira1](https://atlanhq.atlassian.net/browse/LIN-909), [Jira2](https://atlanhq.atlassian.net/browse/LIN-910), [Slack1](https://atlanhq.slack.com/archives/C02DDQ7), [Slack2](https://atlanhq.slack.com/archives/C02DDQ79H6Z)
+
+- demo commit (#17)
+   - Author: @alii13
+   - Links: [GitHub](https://github.com/alii13/about/pull/17)
+
+- chore: demo commit (#10)
+   - Author: @alii13
+   - Links: [GitHub](https://github.com/alii13/about/pull/10)
+
+- chore(deps): bump webpack-dev-middleware and react-scripts (#9)
+   - Author: @dependabot[bot]
+   - Links: [GitHub](https://github.com/alii13/about/pull/9)
+
+- chore: demo commit (#7)
+   - Author: @alii13
+   - Links: [GitHub](https://github.com/alii13/about/pull/7)
+
+
