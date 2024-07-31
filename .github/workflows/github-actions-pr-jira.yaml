@@ -23,7 +23,7 @@ jobs:
   Enforce-GitHub-Jira-Link-Action:
     runs-on: ubuntu-latest
     needs: Check-Condition
-    if: ${{ needs.Check-Condition.outputs.skip == 'false' }}
+    if: ${{ fromJson(needs.Check-Condition.outputs.skip) == 'false' }}
     steps:
       - name: Enforce Pull Request Title includes Jira Issue Key
         uses: ryanvade/enforce-pr-title-style-action@v2.1.1
@@ -31,7 +31,7 @@ jobs:
   Skip-Job:
     runs-on: ubuntu-latest
     needs: Check-Condition
-    if: ${{ needs.Check-Condition.outputs.skip == 'true' }}
+    if: ${{ fromJson(needs.Check-Condition.outputs.skip) == 'true' }}
     steps:
       - name: Skip the required job for specified branches
         run: echo "Skipping the required job as the head branch is in the specified list."
