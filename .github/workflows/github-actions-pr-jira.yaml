@@ -5,6 +5,7 @@ on:
     types: [opened, edited, synchronize, reopened]
     branches: [main, staging, master, beta, develop, prod, development]
 
+
 jobs:
   Enforce-GitHub-Jira-Link-Action:
     runs-on: ubuntu-latest
