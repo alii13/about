@@ -18,6 +18,7 @@ jobs:
             echo "skip=true" >> $GITHUB_ENV
           else
             echo "skip=false" >> $GITHUB_ENV
+          fi
         shell: bash
 
   Enforce-GitHub-Jira-Link-Action:
