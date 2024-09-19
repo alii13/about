@@ -16,8 +16,8 @@ jobs:
         base_branch="${{ github.event.pull_request.base.ref }}"
         head_branch="${{ github.event.pull_request.head.ref }}"
         
-        # Check if milestone is present
-        if [ "${{ github.event.pull_request.milestone }}" == "null" ]; then
+        # Check if milestone is present. If missing, GitHub returns an empty object for milestone, so we check for that
+        if [ -z "${{ github.event.pull_request.milestone }}" ]; then
           milestone_missing=true
         else
           milestone_missing=false
