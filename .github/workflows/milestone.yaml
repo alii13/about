@@ -1,0 +1,45 @@
+name: Check Milestone for PR
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize]
+
+jobs:
+  check-milestone:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Check if milestone is set and branch exception
+      id: check-milestone
+      run: |
+        # Get the base and head branches for the PR
+        base_branch="${{ github.event.pull_request.base.ref }}"
+        head_branch="${{ github.event.pull_request.head.ref }}"
+        
+        # Check for milestone presence
+        if [ "${{ github.event.pull_request.milestone }}" == "null" ]; then
+          milestone_missing=true
+        else
+          milestone_missing=false
+        fi
+
+        # Define the branches to skip
+        if [[ "$base_branch" == "main" && "$head_branch" == "staging" ]] || \
+           [[ "$base_branch" == "staging" && "$head_branch" == "develop" ]] || \
+           [[ "$base_branch" == "develop" && "$head_branch" == "staging" ]] || \
+           [[ "$base_branch" == "staging" && "$head_branch" == "main" ]]; then
+          echo "Branch exception for PR between $base_branch and $head_branch. Skipping milestone check."
+          echo "milestone_missing=false" >> $GITHUB_ENV
+        else
+          echo "milestone_missing=$milestone_missing" >> $GITHUB_ENV
+        fi
+
+    - name: Fail if no milestone
+      if: env.milestone_missing == 'true'
+      run: |
+        echo "This PR does not have a milestone attached. Failing the workflow."
+        exit 1
+
+    - name: Succeed if milestone is present or branch is exempt
+      if: env.milestone_missing == 'false'
+      run: echo "Milestone is attached or branch is exempt. Proceeding."
