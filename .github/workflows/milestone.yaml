@@ -2,7 +2,7 @@ name: Check Milestone for PR
 
 on:
   pull_request:
-    types: [opened, edited, synchronize]
+    types: [opened, edited, synchronize,milestoned,demilestoned]
 
 jobs:
   check-milestone:
