@@ -16,14 +16,14 @@ jobs:
         base_branch="${{ github.event.pull_request.base.ref }}"
         head_branch="${{ github.event.pull_request.head.ref }}"
         
-        # Check for milestone presence
+        # Check if milestone is present
         if [ "${{ github.event.pull_request.milestone }}" == "null" ]; then
           milestone_missing=true
         else
           milestone_missing=false
         fi
 
-        # Define the branches to skip
+        # Define branch exceptions (main <-> staging <-> develop)
         if [[ "$base_branch" == "main" && "$head_branch" == "staging" ]] || \
            [[ "$base_branch" == "staging" && "$head_branch" == "develop" ]] || \
            [[ "$base_branch" == "develop" && "$head_branch" == "staging" ]] || \
