@@ -81,14 +81,19 @@ jobs:
             const milestone1DueDate = friday.toISOString();
             const milestone1Description = '';
 
-            // Create Milestone 1
-            await github.rest.issues.createMilestone({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              title: milestone1Name,
-              due_on: milestone1DueDate,
-              description: milestone1Description,
-            });
+            if (!milestoneExists(milestone1Name)) {
+              // Create Milestone 1
+              await github.rest.issues.createMilestone({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: milestone1Name,
+                due_on: milestone1DueDate,
+                description: milestone1Description,
+              });
+              console.log(`Milestone "${milestone1Name}" created successfully.`);
+            } else {
+              console.log(`Milestone "${milestone1Name}" already exists. Skipping creation.`);
+            }
 
             // Milestone 2: Tuesday Regular Release
             const tuesday = getNextWeekday(today, 2); // Next Tuesday
@@ -108,6 +113,7 @@ jobs:
                 due_on: milestone2DueDate,
                 description: milestone2Description,
               });
+              console.log(`Milestone "${milestone2Name}" created successfully.`);
             } else {
               console.log(`Milestone "${milestone2Name}" already exists. Skipping creation.`);
             }
@@ -130,8 +136,7 @@ jobs:
                 due_on: milestone3DueDate,
                 description: milestone3Description,
               });
+              console.log(`Milestone "${milestone3Name}" created successfully.`);
             } else {
               console.log(`Milestone "${milestone3Name}" already exists. Skipping creation.`);
             }
-
-            console.log('Milestones created successfully.');
