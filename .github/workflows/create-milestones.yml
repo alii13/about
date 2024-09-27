@@ -1,0 +1,101 @@
+name: Create Milestones
+
+on:
+  workflow_dispatch:
+
+jobs:
+  create_milestones:
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write  # Grants permission to create milestones
+    steps:
+      - name: Create milestones
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const today = new Date();
+
+            // Helper functions to get specific weekdays
+            function getWeekday(d, weekday) {
+              const date = new Date(d);
+              const day = date.getDay();
+              const diff = date.getDate() - day + (day === 0 ? -6 : 1) + (weekday - 1);
+              return new Date(date.setDate(diff));
+            }
+
+            function getPreviousWeekday(d, weekday) {
+              const date = getWeekday(d, weekday);
+              return new Date(date.setDate(date.getDate() - 7));
+            }
+
+            // Formatting functions
+            function formatDateOrdinal(date) {
+              const day = date.getDate();
+              const month = date.toLocaleString('default', { month: 'short' });
+              const ordinal = getOrdinalSuffix(day);
+              return `${day}${ordinal} ${month}`;
+            }
+
+            function formatDateSlash(date) {
+              const day = String(date.getDate()).padStart(2, '0');
+              const month = String(date.getMonth() + 1).padStart(2, '0');
+              return `${day}/${month}`;
+            }
+
+            function getOrdinalSuffix(n) {
+              const s = ["th", "st", "nd", "rd"];
+              const v = n % 100;
+              return s[(v - 20) % 10] || s[v] || s[0];
+            }
+
+            // Calculate required dates
+            const monday = getWeekday(today, 1);
+            const tuesday = getWeekday(today, 2);
+            const thursday = getWeekday(today, 4);
+            const friday = getWeekday(today, 5);
+            const prevThursday = getPreviousWeekday(today, 4);
+            const prevTuesday = getPreviousWeekday(today, 2);
+
+            // Milestone 1
+            const milestone1Name = `Urgent Releases (${formatDateOrdinal(monday)} - ${formatDateOrdinal(friday)})`;
+            const milestone1DueDate = friday.toISOString();
+            const milestone1Description = '';
+
+            // Milestone 2
+            const milestone2Name = `Tuesday regular release (${formatDateSlash(tuesday)})`;
+            const milestone2DueDate = tuesday.toISOString();
+            const milestone2Description = `PRs to be merged by ${formatDateSlash(prevThursday)}\nRelease by ${formatDateSlash(tuesday)}`;
+
+            // Milestone 3
+            const milestone3Name = `Thursday regular release (${formatDateSlash(thursday)})`;
+            const milestone3DueDate = thursday.toISOString();
+            const milestone3Description = `PRs to be merged by ${formatDateSlash(prevTuesday)}\nRelease by ${formatDateSlash(thursday)}`;
+
+            // Create Milestone 1
+            await github.rest.issues.createMilestone({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: milestone1Name,
+              due_on: milestone1DueDate,
+              description: milestone1Description,
+            });
+
+            // Create Milestone 2
+            await github.rest.issues.createMilestone({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: milestone2Name,
+              due_on: milestone2DueDate,
+              description: milestone2Description,
+            });
+
+            // Create Milestone 3
+            await github.rest.issues.createMilestone({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: milestone3Name,
+              due_on: milestone3DueDate,
+              description: milestone3Description,
+            });
+
+            console.log('Milestones created successfully.');
