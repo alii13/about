@@ -12,7 +12,6 @@ jobs:
       - name: Create milestones
         uses: actions/github-script@v6
         with:
-          github-token: ${{ secrets.ORG_PAT_GITHUB }}
           script: |
             const today = new Date();
 
