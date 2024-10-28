@@ -1,177 +1,177 @@
 name: Reverse sync `sync-pull-request` labeled PRs with master
 
 on:
-    schedule:
-        - cron: '30 0 * * 2,4' # Every Tuesday and Thursday at 12:30 AM UTC (6:00 AM IST)
-    workflow_dispatch: # Manual trigger
-    pull_request:
-    types: [closed] # Triggered when a PR is closed (either merged or closed)
+  schedule:
+      - cron: '30 0 * * 2,4' # Every Tuesday and Thursday at 12:30 AM UTC (6:00 AM IST)
+  workflow_dispatch: # Manual trigger
+  pull_request:
+  types: [closed] # Triggered when a PR is closed (either merged or closed)
 
 jobs:
-    sync-pr-creation:
-        if: github.event_name != 'pull_request'
-        runs-on: ubuntu-latest
-        steps:
-            - name: Checkout repository
-              uses: actions/checkout@v2
-
-            - name: Set up Git
-              run: |
-                  git config --global user.name 'github-actions[bot]'
-                  git config --global user.email 'github-actions[bot]@users.noreply.github.com'
-
-            - name: Fetch all PRs with sync label
-              id: pr_list
-              run: |
-                  PR_IDS=$(gh pr list --label 'sync_pull_request' --state open --json number --jq '.[].number' | tr '\n' ' ')
-                  echo "PR_IDS=$PR_IDS" >> $GITHUB_ENV
-              env:
-                  GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-            - name: Sync each labeled PR with master
-              if: env.PR_IDS
-              run: |
-                  # Fetch master branch into a remote-tracking branch
-                  git fetch origin master:refs/remotes/origin/master
-
-                  for PR_ID in $PR_IDS; do
-                    # Retrieve the head branch name for the PR
-                    PR_BRANCH=$(gh pr view $PR_ID --json headRefName --jq '.headRefName')
-                    echo "PR_BRANCH for PR #$PR_ID is $PR_BRANCH"
-
-                    # If PR_BRANCH is empty, skip this iteration
-                    if [ -z "$PR_BRANCH" ]; then
-                      echo "Error: Unable to retrieve head branch name for PR #$PR_ID. Skipping."
-                      continue
-                    fi
-
-                    # Fetch the specific PR branch into a remote-tracking branch
-                    git fetch origin $PR_BRANCH:refs/remotes/origin/$PR_BRANCH
-                    
-                    # Calculate commits difference specifically from master to PR_BRANCH
-                    COMMITS_DIFF=$(git rev-list --left-only --count origin/master...origin/$PR_BRANCH)
-                    
-                    if [ "$COMMITS_DIFF" -gt 0 ]; then
-                      # Check if a sync PR already exists
-                      SYNC_PR_EXISTS=$(gh pr list --base $PR_BRANCH --head master --state open --json url --jq '.[].url')
-                      
-                      if [ -z "$SYNC_PR_EXISTS" ]; then
-                        echo "Creating sync PR from master to $PR_BRANCH..."
-                        gh pr create --base $PR_BRANCH --head master --title "Sync 'master' into PR #$PR_ID" --body "Automated PR sync from 'master' to '$PR_BRANCH'"
-                        SYNC_PR_URL=$(gh pr list --base $PR_BRANCH --head master --state open --json url --jq '.[0].url')
-                      else
-                        echo "Sync PR from master to $PR_BRANCH already exists."
-                        SYNC_PR_URL=$SYNC_PR_EXISTS
-                      fi
-
-                      # Add a reminder comment to the original PR to keep it in sync with the master
-                      gh pr comment $PR_ID --body "<strong>Attention ⚠️</strong><br><br>This PR should be kept in sync with 'master' to ensure it leverages the latest changes. Please merge the reverse sync PR [here]($SYNC_PR_URL)."
-
-                    else
-                      echo "PR #$PR_ID is already up to date with master."
-                    fi
-                  done
-              env:
-                  GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-    sync-long-lived-branches:
+  sync-pr-creation:
       if: github.event_name != 'pull_request'
       runs-on: ubuntu-latest
       steps:
-        - name: Checkout repository
-          uses: actions/checkout@v2
+          - name: Checkout repository
+            uses: actions/checkout@v2
 
-        - name: Set up Git
-          run: |
-            git config --global user.name 'github-actions[bot]'
-            git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+          - name: Set up Git
+            run: |
+                git config --global user.name 'github-actions[bot]'
+                git config --global user.email 'github-actions[bot]@users.noreply.github.com'
 
-        - name: Define long-lived branches
-          id: define_branches
-          run: |
-            # Define a space-separated list of long-lived branches to keep in sync with master
-            LONG_LIVED_BRANCHES="branch1 branch2 branch3"
-            echo "LONG_LIVED_BRANCHES=$LONG_LIVED_BRANCHES" >> $GITHUB_ENV
+          - name: Fetch all PRs with sync label
+            id: pr_list
+            run: |
+                PR_IDS=$(gh pr list --label 'sync_pull_request' --state open --json number --jq '.[].number' | tr '\n' ' ')
+                echo "PR_IDS=$PR_IDS" >> $GITHUB_ENV
+            env:
+                GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-        - name: Sync each defined long-lived branch with master
-          if: env.LONG_LIVED_BRANCHES
-          run: |
-            # Fetch master branch into a remote-tracking branch
-            git fetch origin master:refs/remotes/origin/master
+          - name: Sync each labeled PR with master
+            if: env.PR_IDS
+            run: |
+                # Fetch master branch into a remote-tracking branch
+                git fetch origin master:refs/remotes/origin/master
 
-            for BRANCH in $LONG_LIVED_BRANCHES; do
-              # Fetch the specific long-lived branch into a remote-tracking branch
-              git fetch origin $BRANCH:refs/remotes/origin/$BRANCH
+                for PR_ID in $PR_IDS; do
+                  # Retrieve the head branch name for the PR
+                  PR_BRANCH=$(gh pr view $PR_ID --json headRefName --jq '.headRefName')
+                  echo "PR_BRANCH for PR #$PR_ID is $PR_BRANCH"
+
+                  # If PR_BRANCH is empty, skip this iteration
+                  if [ -z "$PR_BRANCH" ]; then
+                    echo "Error: Unable to retrieve head branch name for PR #$PR_ID. Skipping."
+                    continue
+                  fi
+
+                  # Fetch the specific PR branch into a remote-tracking branch
+                  git fetch origin $PR_BRANCH:refs/remotes/origin/$PR_BRANCH
+                  
+                  # Calculate commits difference specifically from master to PR_BRANCH
+                  COMMITS_DIFF=$(git rev-list --left-only --count origin/master...origin/$PR_BRANCH)
+                  
+                  if [ "$COMMITS_DIFF" -gt 0 ]; then
+                    # Check if a sync PR already exists
+                    SYNC_PR_EXISTS=$(gh pr list --base $PR_BRANCH --head master --state open --json url --jq '.[].url')
+                    
+                    if [ -z "$SYNC_PR_EXISTS" ]; then
+                      echo "Creating sync PR from master to $PR_BRANCH..."
+                      gh pr create --base $PR_BRANCH --head master --title "Sync 'master' into PR #$PR_ID" --body "Automated PR sync from 'master' to '$PR_BRANCH'"
+                      SYNC_PR_URL=$(gh pr list --base $PR_BRANCH --head master --state open --json url --jq '.[0].url')
+                    else
+                      echo "Sync PR from master to $PR_BRANCH already exists."
+                      SYNC_PR_URL=$SYNC_PR_EXISTS
+                    fi
+
+                    # Add a reminder comment to the original PR to keep it in sync with the master
+                    gh pr comment $PR_ID --body "<strong>Attention ⚠️</strong><br><br>This PR should be kept in sync with 'master' to ensure it leverages the latest changes. Please merge the reverse sync PR [here]($SYNC_PR_URL)."
+
+                  else
+                    echo "PR #$PR_ID is already up to date with master."
+                  fi
+                done
+            env:
+                GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  sync-long-lived-branches:
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Set up Git
+        run: |
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+
+      - name: Define long-lived branches
+        id: define_branches
+        run: |
+          # Define a space-separated list of long-lived branches to keep in sync with master
+          LONG_LIVED_BRANCHES="branch1 branch2 branch3"
+          echo "LONG_LIVED_BRANCHES=$LONG_LIVED_BRANCHES" >> $GITHUB_ENV
+
+      - name: Sync each defined long-lived branch with master
+        if: env.LONG_LIVED_BRANCHES
+        run: |
+          # Fetch master branch into a remote-tracking branch
+          git fetch origin master:refs/remotes/origin/master
+
+          for BRANCH in $LONG_LIVED_BRANCHES; do
+            # Fetch the specific long-lived branch into a remote-tracking branch
+            git fetch origin $BRANCH:refs/remotes/origin/$BRANCH
+            
+            # Calculate commits difference specifically from master to the long-lived branch
+            COMMITS_DIFF=$(git rev-list --left-only --count origin/master...origin/$BRANCH)
+            
+            if [ "$COMMITS_DIFF" -gt 0 ]; then
+              # Check if a sync PR already exists
+              SYNC_PR_EXISTS=$(gh pr list --base $BRANCH --head master --state open --json url --jq '.[].url')
               
-              # Calculate commits difference specifically from master to the long-lived branch
-              COMMITS_DIFF=$(git rev-list --left-only --count origin/master...origin/$BRANCH)
-              
-              if [ "$COMMITS_DIFF" -gt 0 ]; then
-                # Check if a sync PR already exists
-                SYNC_PR_EXISTS=$(gh pr list --base $BRANCH --head master --state open --json url --jq '.[].url')
-                
-                if [ -z "$SYNC_PR_EXISTS" ]; then
-                  echo "Creating sync PR from master to $BRANCH..."
-                  SYNC_PR_URL=$(gh pr create --base $BRANCH --head master --title "Sync 'master' into '$BRANCH'" --body "Automated PR sync from 'master' to '$BRANCH'" | grep -o "https://github.com/[^\"]*")
-                else
-                  echo "Sync PR from master to $BRANCH already exists."
-                  SYNC_PR_URL=$SYNC_PR_EXISTS
-                fi
-
-                # Retrieve the author of the branch's latest commit with fallback for missing author
-                AUTHOR_USERNAME=$(gh api repos/${{ github.repository_owner }}/${{ github.event.repository.name }}/commits/$BRANCH | jq -r '.author.login // "unknown-author"')
-
-                # Check if there's an existing issue for this branch
-                ISSUE_NUMBER=$(gh issue list --label "sync-notification" --search "$BRANCH sync notification" --json number --jq '.[0].number')
-
-                if [ -z "$ISSUE_NUMBER" ]; then
-                  # Create a new issue to notify the author
-                  echo "Creating a notification issue for $BRANCH..."
-                  gh issue create --title "$BRANCH Sync Notification" \
-                                  --body "A sync PR [here]($SYNC_PR_URL) was created to keep **$BRANCH** in sync with 'master'.\n\n@${AUTHOR_USERNAME}, please review and merge this PR to ensure your branch is up-to-date." \
-                                  --label "sync-notification"
-                else
-                  # Add a comment to the existing issue
-                  echo "Updating existing notification issue #$ISSUE_NUMBER for $BRANCH..."
-                  gh issue comment $ISSUE_NUMBER --body "A new sync PR [here]($SYNC_PR_URL) has been created to keep **$BRANCH** in sync with 'master'."
-                fi
+              if [ -z "$SYNC_PR_EXISTS" ]; then
+                echo "Creating sync PR from master to $BRANCH..."
+                SYNC_PR_URL=$(gh pr create --base $BRANCH --head master --title "Sync 'master' into '$BRANCH'" --body "Automated PR sync from 'master' to '$BRANCH'" | grep -o "https://github.com/[^\"]*")
               else
-                echo "Branch $BRANCH is already up to date with master."
+                echo "Sync PR from master to $BRANCH already exists."
+                SYNC_PR_URL=$SYNC_PR_EXISTS
               fi
-            done
-          env:
-            GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-    close-notification-issue:
-      if: github.event_name == 'pull_request' && github.event.pull_request.merged == true
-      runs-on: ubuntu-latest
-      steps:
-        - name: Checkout repository
-          uses: actions/checkout@v2
+              # Retrieve the author of the branch's latest commit with fallback for missing author
+              AUTHOR_USERNAME=$(gh api repos/${{ github.repository_owner }}/${{ github.event.repository.name }}/commits/$BRANCH | jq -r '.author.login // "unknown-author"')
 
-        - name: Set up GitHub CLI
-          run: |
-            git config --global user.name 'github-actions[bot]'
-            git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+              # Check if there's an existing issue for this branch
+              ISSUE_NUMBER=$(gh issue list --label "sync-notification" --search "$BRANCH sync notification" --json number --jq '.[0].number')
 
-        - name: Determine branch from merged PR
-          id: get_branch
-          run: |
-            # Extract the base branch name from the merged PR
-            BASE_BRANCH="${{ github.event.pull_request.base.ref }}"
-            echo "BASE_BRANCH=$BASE_BRANCH" >> $GITHUB_ENV
-
-        - name: Find and close related notification issue
-          if: env.BASE_BRANCH
-          run: |
-            # Search for an open issue with the sync notification label and the branch name in the title
-            ISSUE_NUMBER=$(gh issue list --label "sync-notification" --state open --search "$BASE_BRANCH sync notification" --json number --jq '.[0].number')
-
-            if [ -n "$ISSUE_NUMBER" ]; then
-              echo "Closing issue #$ISSUE_NUMBER related to branch $BASE_BRANCH..."
-              gh issue close $ISSUE_NUMBER --comment "The sync PR for **$BASE_BRANCH** has been merged. This issue is now closed. Thank you for keeping your branch up to date!"
+              if [ -z "$ISSUE_NUMBER" ]; then
+                # Create a new issue to notify the author
+                echo "Creating a notification issue for $BRANCH..."
+                gh issue create --title "$BRANCH Sync Notification" \
+                                --body "A sync PR [here]($SYNC_PR_URL) was created to keep **$BRANCH** in sync with 'master'.\n\n@${AUTHOR_USERNAME}, please review and merge this PR to ensure your branch is up-to-date." \
+                                --label "sync-notification"
+              else
+                # Add a comment to the existing issue
+                echo "Updating existing notification issue #$ISSUE_NUMBER for $BRANCH..."
+                gh issue comment $ISSUE_NUMBER --body "A new sync PR [here]($SYNC_PR_URL) has been created to keep **$BRANCH** in sync with 'master'."
+              fi
             else
-              echo "No open notification issue found for branch $BASE_BRANCH."
+              echo "Branch $BRANCH is already up to date with master."
             fi
-          env:
-            GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          done
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  close-notification-issue:
+    if: github.event_name == 'pull_request' && github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Set up GitHub CLI
+        run: |
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+
+      - name: Determine branch from merged PR
+        id: get_branch
+        run: |
+          # Extract the base branch name from the merged PR
+          BASE_BRANCH="${{ github.event.pull_request.base.ref }}"
+          echo "BASE_BRANCH=$BASE_BRANCH" >> $GITHUB_ENV
+
+      - name: Find and close related notification issue
+        if: env.BASE_BRANCH
+        run: |
+          # Search for an open issue with the sync notification label and the branch name in the title
+          ISSUE_NUMBER=$(gh issue list --label "sync-notification" --state open --search "$BASE_BRANCH sync notification" --json number --jq '.[0].number')
+
+          if [ -n "$ISSUE_NUMBER" ]; then
+            echo "Closing issue #$ISSUE_NUMBER related to branch $BASE_BRANCH..."
+            gh issue close $ISSUE_NUMBER --comment "The sync PR for **$BASE_BRANCH** has been merged. This issue is now closed. Thank you for keeping your branch up to date!"
+          else
+            echo "No open notification issue found for branch $BASE_BRANCH."
+          fi
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
