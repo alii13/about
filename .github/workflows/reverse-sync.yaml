@@ -32,10 +32,18 @@ jobs:
           git fetch origin master:refs/remotes/origin/master
 
           for PR_ID in $PR_IDS; do
-            PR_BRANCH=$(gh pr list --json headRefName --jq ".[] | select(.number==$PR_ID) | .headRefName")
+            # Retrieve the head branch name for the PR
+            PR_BRANCH=$(gh pr view $PR_ID --json headRefName --jq '.headRefName')
+            echo "PR_BRANCH for PR #$PR_ID is $PR_BRANCH"
+
+            # If PR_BRANCH is empty, skip this iteration
+            if [ -z "$PR_BRANCH" ]; then
+              echo "Error: Unable to retrieve head branch name for PR #$PR_ID. Skipping."
+              continue
+            fi
 
             # Fetch the specific PR branch into a remote-tracking branch
-            git fetch origin $PR_BRANCH:refs/remotes/origin/$PR_BRANCH || continue
+            git fetch origin $PR_BRANCH:refs/remotes/origin/$PR_BRANCH
             
             # Calculate commits difference specifically from master to PR_BRANCH
             COMMITS_DIFF=$(git rev-list --left-only --count origin/master...origin/$PR_BRANCH)
