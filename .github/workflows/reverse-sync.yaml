@@ -11,7 +11,7 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v2
-      
+
       - name: Set up Git
         run: |
           git config --global user.name 'github-actions[bot]'
@@ -32,7 +32,7 @@ jobs:
           git fetch origin master:refs/remotes/origin/master
 
           for PR_ID in $PR_IDS; do
-            PR_BRANCH=$(gh pr view $PR_ID --json headRefName --jq '.headRefName')
+            PR_BRANCH=$(gh pr list --json headRefName --jq ".[] | select(.number==$PR_ID) | .headRefName")
 
             # Fetch the specific PR branch into a remote-tracking branch
             git fetch origin $PR_BRANCH:refs/remotes/origin/$PR_BRANCH || continue
@@ -42,17 +42,18 @@ jobs:
             
             if [ "$COMMITS_DIFF" -gt 0 ]; then
               # Check if a sync PR already exists
-              SYNC_PR_EXISTS=$(gh pr list --base $PR_BRANCH --head master --state open --json url --jq '.[0].url')
+              SYNC_PR_EXISTS=$(gh pr list --base $PR_BRANCH --head master --state open --json url --jq '.[].url')
               
               if [ -z "$SYNC_PR_EXISTS" ]; then
                 echo "Creating sync PR from master to $PR_BRANCH..."
-                SYNC_PR_URL=$(gh pr create --base $PR_BRANCH --head master --title "Sync 'master' into PR #$PR_ID" --body "Automated PR sync from 'master' to '$PR_BRANCH'" | grep -o "https://github.com/[^\"]*")
+                gh pr create --base $PR_BRANCH --head master --title "Sync 'master' into PR #$PR_ID" --body "Automated PR sync from 'master' to '$PR_BRANCH'"
+                SYNC_PR_URL=$(gh pr list --base $PR_BRANCH --head master --state open --json url --jq '.[0].url')
               else
                 echo "Sync PR from master to $PR_BRANCH already exists."
                 SYNC_PR_URL=$SYNC_PR_EXISTS
               fi
 
-              # Add a reminder comment to the original PR to keep it in sync, with the reverse sync PR URL
+              # Add a reminder comment to the original PR to keep it in sync with the master
               gh pr comment $PR_ID --body "### Attention :warning:\nThis PR should be kept in sync with 'master' to ensure it leverages the latest changes. Please merge the reverse sync PR [here]($SYNC_PR_URL)."
 
             else
