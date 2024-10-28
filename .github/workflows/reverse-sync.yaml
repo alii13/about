@@ -36,11 +36,11 @@ jobs:
                 for PR_ID in $PR_IDS; do
                   PR_BRANCH=$(gh pr view $PR_ID --json headRefName --jq '.headRefName')
                   
-                  # Fetch the specific PR branch to ensure it's available locally
-                  git fetch origin $PR_BRANCH:$PR_BRANCH || continue
+                  # Fetch the latest changes from both the PR branch and main
+                  git fetch origin main $PR_BRANCH
                   
-                  # Calculate commits difference
-                  COMMITS_DIFF=$(git rev-list --left-right --count $PR_BRANCH...main | awk '{print $2}')
+                  # Calculate commits difference specifically from main to PR_BRANCH
+                  COMMITS_DIFF=$(git rev-list --left-only --count main...$PR_BRANCH)
                   
                   if [ "$COMMITS_DIFF" -gt 0 ]; then
                     SYNC_PR_EXISTS=$(gh pr list --base $PR_BRANCH --head main --state open --json id --jq '.[].id')
@@ -60,6 +60,7 @@ jobs:
                 done
               env:
                 GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
 
 
             - name: Add sync reminder comment
