@@ -91,7 +91,7 @@ jobs:
         id: define_branches
         run: |
           # Define a space-separated list of long-lived branches to keep in sync with master
-          LONG_LIVED_BRANCHES="branch1 branch2 branch3"
+          LONG_LIVED_BRANCHES="milestone-creation develop staging"
           echo "LONG_LIVED_BRANCHES=$LONG_LIVED_BRANCHES" >> $GITHUB_ENV
 
       - name: Sync each defined long-lived branch with master
