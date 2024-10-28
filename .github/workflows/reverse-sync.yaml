@@ -42,31 +42,22 @@ jobs:
             
             if [ "$COMMITS_DIFF" -gt 0 ]; then
               # Check if a sync PR already exists
-              SYNC_PR_EXISTS=$(gh pr list --base $PR_BRANCH --head master --state open --json id --jq '.[].id')
+              SYNC_PR_EXISTS=$(gh pr list --base $PR_BRANCH --head master --state open --json url --jq '.[0].url')
               
               if [ -z "$SYNC_PR_EXISTS" ]; then
                 echo "Creating sync PR from master to $PR_BRANCH..."
-                gh pr create --base $PR_BRANCH --head master --title "Sync 'master' into PR #$PR_ID" --body "Automated PR sync from 'master' to '$PR_BRANCH'"
+                SYNC_PR_URL=$(gh pr create --base $PR_BRANCH --head master --title "Sync 'master' into PR #$PR_ID" --body "Automated PR sync from 'master' to '$PR_BRANCH'" --json url --jq '.url')
               else
                 echo "Sync PR from master to $PR_BRANCH already exists."
+                SYNC_PR_URL=$SYNC_PR_EXISTS
               fi
 
-              # Add a reminder comment if the sync PR is not merged
-              echo "PR_ID=$PR_ID" >> $GITHUB_ENV
+              # Add a reminder comment to the original PR to keep it in sync, with the reverse sync PR URL
+              gh pr comment $PR_ID --body "### Attention :warning:\nThis PR should be kept in sync with 'master' to ensure it leverages the latest changes. Please merge the reverse sync PR [here]($SYNC_PR_URL)."
+
             else
               echo "PR #$PR_ID is already up to date with master."
             fi
           done
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-
-      - name: Add sync reminder comment
-        if: env.PR_ID
-        uses: mshick/add-pr-comment@v2
-        with:
-            message-id: 'sync-pr-comment'
-            repo-token: ${{ secrets.GITHUB_TOKEN }}
-            message: |
-                      ### Attention :warning:
-                      This PR should be kept in sync with 'master' to ensure it leverages the latest changes., Please merge this reverse sync PR #${{env.PR_ID}}.
