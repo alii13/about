@@ -27,7 +27,7 @@ jobs:
                   PR_IDS=$(gh pr list --label 'sync_pull_request' --state open --json number --jq '.[].number')
                   echo "PR_IDS=$PR_IDS" >> $GITHUB_ENV
               env:
-                  GH_TOKEN: ${{ secrets.ORG_PAT_GITHUB }}
+                  GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
             - name: Sync each labeled PR with master
               if: env.PR_IDS
@@ -53,12 +53,12 @@ jobs:
                     fi
                   done
               env:
-                  GH_TOKEN: ${{ secrets.ORG_PAT_GITHUB }}
+                  GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
             - name: Add sync reminder comment
               if: env.PR_ID
               uses: mshick/add-pr-comment@v2
               with:
-                  repo-token: ${{ secrets.ORG_PAT_GITHUB }}
+                  repo-token: ${{ secrets.GITHUB_TOKEN }}
                   pull-number: ${{ env.PR_ID }}
                   body: "⚠️ This PR should be kept in sync with 'master' to ensure it leverages the latest changes."
