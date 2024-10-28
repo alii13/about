@@ -65,6 +65,8 @@ jobs:
         if: env.PR_ID
         uses: mshick/add-pr-comment@v2
         with:
+            message-id: 'sync-pr-comment'
             repo-token: ${{ secrets.GITHUB_TOKEN }}
-            pull-number: ${{ env.PR_ID }}
-            body: "⚠️ This PR should be kept in sync with 'master' to ensure it leverages the latest changes."
+            message: |
+                      ### Attention :warning:
+                      This PR should be kept in sync with 'master' to ensure it leverages the latest changes., Please merge this reverse sync PR #${{env.PR_ID}}.
