@@ -1,84 +1,70 @@
 name: Sync Long-lived PRs with master
 
 on:
-    schedule:
-        - cron: '30 0 * * 2,4' # Every Tuesday and Thursday at 12:30 AM UTC (6:00 AM IST)
-    workflow_dispatch: # Manual trigger
+  schedule:
+    - cron: "30 0 * * 2,4"  # Every Tuesday and Thursday at 12:30 AM UTC (6:00 AM IST)
+  workflow_dispatch:       # Manual trigger
 
 jobs:
-    sync-pr-creation:
-        runs-on: ubuntu-latest
-        steps:
-            - name: Checkout repository
-              uses: actions/checkout@v2
+  sync-pr-creation:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+      
+      - name: Set up Git
+        run: |
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
 
-            - name: Set up Git
-              run: |
-                  git config --global user.name 'github-actions[bot]'
-                  git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+      - name: Fetch all PRs with sync label
+        id: pr_list
+        run: |
+          PR_IDS=$(gh pr list --label 'sync_pull_request' --state open --json number --jq '.[].number' | tr '\n' ' ')
+          echo "PR_IDS=$PR_IDS" >> $GITHUB_ENV
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-            - name: Fetch all branches
-              run: |
-                  git fetch --all
+      - name: Sync each labeled PR with master
+        if: env.PR_IDS
+        run: |
+          # Fetch master branch to ensure it's up-to-date locally
+          git fetch origin master:master
 
-            - name: List PRs with sync label
-              id: pr_list
-              run: |
-                PR_IDS=$(gh pr list --label 'sync_pull_request' --state open --json number --jq '.[].number' | tr '\n' ' ')
-                echo "PR_IDS=$PR_IDS" >> $GITHUB_ENV
-              env:
-                GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          for PR_ID in $PR_IDS; do
+            PR_BRANCH=$(gh pr view $PR_ID --json headRefName --jq '.headRefName')
 
+            # Fetch the specific PR branch to ensure it's available locally
+            git fetch origin $PR_BRANCH:$PR_BRANCH || continue
+            
+            # Calculate commits difference from master to PR_BRANCH
+            COMMITS_DIFF=$(git rev-list --left-only --count master...$PR_BRANCH)
+            
+            if [ "$COMMITS_DIFF" -gt 0 ]; then
+              # Check if a sync PR already exists
+              SYNC_PR_EXISTS=$(gh pr list --base $PR_BRANCH --head master --state open --json id --jq '.[].id')
+              
+              if [ -z "$SYNC_PR_EXISTS" ]; then
+                echo "Creating sync PR from master to $PR_BRANCH..."
+                gh pr create --base $PR_BRANCH --head master --title "Sync 'master' into PR #$PR_ID" --body "Automated PR sync from 'master' to '$PR_BRANCH'"
+              else
+                echo "Sync PR from master to $PR_BRANCH already exists."
+              fi
 
-            - name: Sync each labeled PR with master
-              if: env.PR_IDS
-              run: |
-                # Check if 'master' exists in the remote; fall back to 'master' if not
-                if git ls-remote --exit-code origin master; then
-                  DEFAULT_BRANCH="master"
-                elif git ls-remote --exit-code origin master; then
-                  DEFAULT_BRANCH="master"
-                else
-                  echo "Error: Neither 'master' nor 'master' branch found in the remote repository."
-                  exit 1
-                fi
+              # Add a reminder comment if the sync PR is not merged
+              echo "PR_ID=$PR_ID" >> $GITHUB_ENV
+            else
+              echo "PR #$PR_ID is already up to date with master."
+            fi
+          done
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      
 
-                # Fetch the default branch to ensure it exists locally
-                git fetch origin $DEFAULT_BRANCH:$DEFAULT_BRANCH
-
-                for PR_ID in $PR_IDS; do
-                  PR_BRANCH=$(gh pr view $PR_ID --json headRefName --jq '.headRefName')
-                  
-                  # Fetch the specific PR branch to ensure it exists locally
-                  git fetch origin $PR_BRANCH:$PR_BRANCH || continue
-                  
-                  # Calculate commits difference specifically from DEFAULT_BRANCH to PR_BRANCH
-                  COMMITS_DIFF=$(git rev-list --left-only --count $DEFAULT_BRANCH...$PR_BRANCH 2>/dev/null)
-                  
-                  if [ "$COMMITS_DIFF" -gt 0 ]; then
-                    SYNC_PR_EXISTS=$(gh pr list --base $PR_BRANCH --head $DEFAULT_BRANCH --state open --json id --jq '.[].id')
-                    
-                    if [ -z "$SYNC_PR_EXISTS" ]; then
-                      echo "Creating sync PR from $DEFAULT_BRANCH to $PR_BRANCH..."
-                      gh pr create --base $PR_BRANCH --head $DEFAULT_BRANCH --title "Sync '$DEFAULT_BRANCH' into PR #$PR_ID" --body "Automated PR sync from '$DEFAULT_BRANCH' to '$PR_BRANCH'"
-                    else
-                      echo "Sync PR from $DEFAULT_BRANCH to $PR_BRANCH already exists."
-                    fi
-
-                    # Add reminder comment if the sync PR is not merged
-                    echo "PR_ID=$PR_ID" >> $GITHUB_ENV
-                  else
-                    echo "PR #$PR_ID is already up to date with $DEFAULT_BRANCH."
-                  fi
-                done
-              env:
-                GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-
-            - name: Add sync reminder comment
-              if: env.PR_ID
-              uses: mshick/add-pr-comment@v2
-              with:
-                  repo-token: ${{ secrets.GITHUB_TOKEN }}
-                  pull-number: ${{ env.PR_ID }}
-                  body: "⚠️ This PR should be kept in sync with 'master' to ensure it leverages the latest changes."
+        - name: Add sync reminder comment
+          if: env.PR_ID
+          uses: mshick/add-pr-comment@v2
+          with:
+              repo-token: ${{ secrets.GITHUB_TOKEN }}
+              pull-number: ${{ env.PR_ID }}
+              body: "⚠️ This PR should be kept in sync with 'master' to ensure it leverages the latest changes."
