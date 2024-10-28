@@ -30,36 +30,49 @@ jobs:
                 GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
 
-            - name: Sync each labeled PR with master
-              if: env.PR_IDS
-              run: |
-                for PR_ID in $PR_IDS; do
-                  PR_BRANCH=$(gh pr view $PR_ID --json headRefName --jq '.headRefName')
-                  
-                  # Fetch the latest changes from both the PR branch and master
-                  git fetch origin master $PR_BRANCH
-                  
-                  # Calculate commits difference specifically from master to PR_BRANCH
-                  COMMITS_DIFF=$(git rev-list --left-only --count master...$PR_BRANCH)
-                  
-                  if [ "$COMMITS_DIFF" -gt 0 ]; then
-                    SYNC_PR_EXISTS=$(gh pr list --base $PR_BRANCH --head master --state open --json id --jq '.[].id')
-                    
-                    if [ -z "$SYNC_PR_EXISTS" ]; then
-                      echo "Creating sync PR from master to $PR_BRANCH..."
-                      gh pr create --base $PR_BRANCH --head master --title "Sync 'master' into PR #$PR_ID" --body "Automated PR sync from 'master' to '$PR_BRANCH'"
-                    else
-                      echo "Sync PR from master to $PR_BRANCH already exists."
-                    fi
+          - name: Sync each labeled PR with master
+            if: env.PR_IDS
+            run: |
+              # Check if 'master' exists in the remote; fall back to 'master' if not
+              if git ls-remote --exit-code origin master; then
+                DEFAULT_BRANCH="master"
+              elif git ls-remote --exit-code origin master; then
+                DEFAULT_BRANCH="master"
+              else
+                echo "Error: Neither 'master' nor 'master' branch found in the remote repository."
+                exit 1
+              fi
 
-                    # Add reminder comment if the sync PR is not merged
-                    echo "PR_ID=$PR_ID" >> $GITHUB_ENV
+              # Fetch the default branch to ensure it exists locally
+              git fetch origin $DEFAULT_BRANCH:$DEFAULT_BRANCH
+
+              for PR_ID in $PR_IDS; do
+                PR_BRANCH=$(gh pr view $PR_ID --json headRefName --jq '.headRefName')
+                
+                # Fetch the specific PR branch to ensure it exists locally
+                git fetch origin $PR_BRANCH:$PR_BRANCH || continue
+                
+                # Calculate commits difference specifically from DEFAULT_BRANCH to PR_BRANCH
+                COMMITS_DIFF=$(git rev-list --left-only --count $DEFAULT_BRANCH...$PR_BRANCH 2>/dev/null)
+                
+                if [ "$COMMITS_DIFF" -gt 0 ]; then
+                  SYNC_PR_EXISTS=$(gh pr list --base $PR_BRANCH --head $DEFAULT_BRANCH --state open --json id --jq '.[].id')
+                  
+                  if [ -z "$SYNC_PR_EXISTS" ]; then
+                    echo "Creating sync PR from $DEFAULT_BRANCH to $PR_BRANCH..."
+                    gh pr create --base $PR_BRANCH --head $DEFAULT_BRANCH --title "Sync '$DEFAULT_BRANCH' into PR #$PR_ID" --body "Automated PR sync from '$DEFAULT_BRANCH' to '$PR_BRANCH'"
                   else
-                    echo "PR #$PR_ID is already up to date with master."
+                    echo "Sync PR from $DEFAULT_BRANCH to $PR_BRANCH already exists."
                   fi
-                done
-              env:
-                GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+                  # Add reminder comment if the sync PR is not merged
+                  echo "PR_ID=$PR_ID" >> $GITHUB_ENV
+                else
+                  echo "PR #$PR_ID is already up to date with $DEFAULT_BRANCH."
+                fi
+              done
+            env:
+              GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
 
 
