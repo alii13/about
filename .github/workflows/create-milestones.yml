@@ -1,0 +1,156 @@
+name: Create Milestones
+
+on:
+  workflow_dispatch:
+
+jobs:
+  create_milestones:
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write  # Grants permission to create milestones
+    steps:
+      - name: Create milestones
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const today = new Date();
+
+            // Helper functions to get specific weekdays in the current week
+            function getWeekdayInCurrentWeek(date, weekday) {
+              const curr = new Date(date);
+              const currDay = curr.getDay() || 7; // Adjust for Sunday
+              const diff = weekday - currDay;
+              const targetDate = new Date(curr);
+              targetDate.setDate(curr.getDate() + diff);
+              return targetDate;
+            }
+
+            // Helper functions to get next and previous weekdays
+            function getNextWeekday(date, weekday) {
+              const resultDate = new Date(date);
+              const day = resultDate.getDay() || 7; // Adjust for Sunday
+              const diff = (weekday + 7 - day) % 7 || 7;
+              resultDate.setDate(resultDate.getDate() + diff);
+              return resultDate;
+            }
+
+            function getPreviousWeekday(date, weekday) {
+              const resultDate = new Date(date);
+              const day = resultDate.getDay() || 7; // Adjust for Sunday
+              const diff = (day + 7 - weekday) % 7 || 7;
+              resultDate.setDate(resultDate.getDate() - diff);
+              return resultDate;
+            }
+
+            // Formatting functions with year included
+            function formatDateOrdinal(date) {
+              const day = date.getDate();
+              const month = date.toLocaleString('default', { month: 'short' });
+              const year = date.getFullYear();
+              const ordinal = getOrdinalSuffix(day);
+              return `${day}${ordinal} ${month} ${year}`;
+            }
+
+            function formatDateSlash(date) {
+              const day = String(date.getDate()).padStart(2, '0');
+              const month = String(date.getMonth() + 1).padStart(2, '0');
+              const year = date.getFullYear();
+              return `${day}/${month}/${year}`;
+            }
+
+            function getOrdinalSuffix(n) {
+              const s = ["th", "st", "nd", "rd"];
+              const v = n % 100;
+              return s[(v - 20) % 10] || s[v] || s[0];
+            }
+
+            // Fetch existing milestones (both open and closed)
+            const { data: milestones } = await github.rest.issues.listMilestones({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'all', // Fetch both open and closed milestones
+            });
+
+            // Function to check if a milestone exists
+            function milestoneExists(title) {
+              return milestones.some(milestone => milestone.title === title);
+            }
+
+            // Milestone 1: Urgent Releases (current week's Monday and Friday)
+            const monday = getWeekdayInCurrentWeek(today, 1); // Monday of the current week
+            const friday = getWeekdayInCurrentWeek(today, 5); // Friday of the current week
+            const milestone1Name = `Urgent Releases (${formatDateOrdinal(monday)} - ${formatDateOrdinal(friday)})`;
+            const milestone1DueDate = friday.toISOString();
+            const milestone1Description = '';
+
+            if (!milestoneExists(milestone1Name)) {
+              try {
+                // Create Milestone 1
+                await github.rest.issues.createMilestone({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  title: milestone1Name,
+                  due_on: milestone1DueDate,
+                  description: milestone1Description,
+                });
+                console.log(`Milestone "${milestone1Name}" created successfully.`);
+              } catch (error) {
+                console.error(`Failed to create milestone "${milestone1Name}": ${error.message}`);
+              }
+            } else {
+              console.log(`Milestone "${milestone1Name}" already exists. Skipping creation.`);
+            }
+
+            // Milestone 2: Tuesday Regular Release
+            const tuesday = getNextWeekday(today, 2); // Next Tuesday
+            const milestone2Name = `Tuesday regular release (${formatDateSlash(tuesday)})`;
+
+            if (!milestoneExists(milestone2Name)) {
+              // Calculate previous Thursday for "PRs to be merged by"
+              const prevThursday = getPreviousWeekday(tuesday, 4); // Thursday before Tuesday
+              const milestone2DueDate = tuesday.toISOString();
+              const milestone2Description = `PRs to be merged by ${formatDateSlash(prevThursday)}\nRelease by ${formatDateSlash(tuesday)}`;
+
+              try {
+                // Create Milestone 2
+                await github.rest.issues.createMilestone({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  title: milestone2Name,
+                  due_on: milestone2DueDate,
+                  description: milestone2Description,
+                });
+                console.log(`Milestone "${milestone2Name}" created successfully.`);
+              } catch (error) {
+                console.error(`Failed to create milestone "${milestone2Name}": ${error.message}`);
+              }
+            } else {
+              console.log(`Milestone "${milestone2Name}" already exists. Skipping creation.`);
+            }
+
+            // Milestone 3: Thursday Regular Release
+            const thursday = getNextWeekday(today, 4); // Next Thursday
+            const milestone3Name = `Thursday regular release (${formatDateSlash(thursday)})`;
+
+            if (!milestoneExists(milestone3Name)) {
+              // Calculate previous Tuesday for "PRs to be merged by"
+              const prevTuesday = getPreviousWeekday(thursday, 2); // Tuesday before Thursday
+              const milestone3DueDate = thursday.toISOString();
+              const milestone3Description = `PRs to be merged by ${formatDateSlash(prevTuesday)}\nRelease by ${formatDateSlash(thursday)}`;
+
+              try {
+                // Create Milestone 3
+                await github.rest.issues.createMilestone({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  title: milestone3Name,
+                  due_on: milestone3DueDate,
+                  description: milestone3Description,
+                });
+                console.log(`Milestone "${milestone3Name}" created successfully.`);
+              } catch (error) {
+                console.error(`Failed to create milestone "${milestone3Name}": ${error.message}`);
+              }
+            } else {
+              console.log(`Milestone "${milestone3Name}" already exists. Skipping creation.`);
+            }
