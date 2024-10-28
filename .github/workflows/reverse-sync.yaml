@@ -61,10 +61,10 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       
 
-        - name: Add sync reminder comment
-          if: env.PR_ID
-          uses: mshick/add-pr-comment@v2
-          with:
-              repo-token: ${{ secrets.GITHUB_TOKEN }}
-              pull-number: ${{ env.PR_ID }}
-              body: "⚠️ This PR should be kept in sync with 'master' to ensure it leverages the latest changes."
+      - name: Add sync reminder comment
+        if: env.PR_ID
+        uses: mshick/add-pr-comment@v2
+        with:
+            repo-token: ${{ secrets.GITHUB_TOKEN }}
+            pull-number: ${{ env.PR_ID }}
+            body: "⚠️ This PR should be kept in sync with 'master' to ensure it leverages the latest changes."
