@@ -24,10 +24,11 @@ jobs:
             - name: List PRs with sync label
               id: pr_list
               run: |
-                  PR_IDS=$(gh pr list --label 'sync_pull_request' --state open --json number --jq '.[].number')
-                  echo "PR_IDS=$PR_IDS" >> $GITHUB_ENV
+                PR_IDS=$(gh pr list --label 'sync_pull_request' --state open --json number --jq '.[].number' | tr '\n' ' ')
+                echo "PR_IDS=$PR_IDS" >> $GITHUB_ENV
               env:
-                  GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+                GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
 
             - name: Sync each labeled PR with main
               if: env.PR_IDS
