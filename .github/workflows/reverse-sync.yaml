@@ -2,10 +2,11 @@ name: Reverse sync `sync-pull-request` labeled PRs with master
 
 on:
   schedule:
-      - cron: '30 0 * * 2,4' # Every Tuesday and Thursday at 12:30 AM UTC (6:00 AM IST)
+    - cron: '30 0 * * 2,4' # Every Tuesday and Thursday at 12:30 AM UTC (6:00 AM IST)
   workflow_dispatch: # Manual trigger
   pull_request:
-  types: [closed] # Triggered when a PR is closed (either merged or closed)
+    types: [closed] # Triggered when a PR is closed (either merged or closed)
+
 
 jobs:
   sync-pr-creation:
