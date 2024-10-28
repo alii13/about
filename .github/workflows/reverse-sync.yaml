@@ -62,7 +62,7 @@ jobs:
               fi
 
               # Add a reminder comment to the original PR to keep it in sync with the master
-              gh pr comment $PR_ID --body "### Attention :warning:\nThis PR should be kept in sync with 'master' to ensure it leverages the latest changes. Please merge the reverse sync PR [here]($SYNC_PR_URL)."
+              gh pr comment $PR_ID --body "### Attention :warning:  \nThis PR should be kept in sync with 'master' to ensure it leverages the latest changes. Please merge the reverse sync PR [here]($SYNC_PR_URL)."
 
             else
               echo "PR #$PR_ID is already up to date with master."
