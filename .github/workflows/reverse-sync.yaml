@@ -28,17 +28,17 @@ jobs:
       - name: Sync each labeled PR with master
         if: env.PR_IDS
         run: |
-          # Fetch master branch to ensure it's up-to-date locally
-          git fetch origin master:master
+          # Fetch master branch into a remote-tracking branch
+          git fetch origin master:refs/remotes/origin/master
 
           for PR_ID in $PR_IDS; do
             PR_BRANCH=$(gh pr view $PR_ID --json headRefName --jq '.headRefName')
 
-            # Fetch the specific PR branch to ensure it's available locally
-            git fetch origin $PR_BRANCH:$PR_BRANCH || continue
+            # Fetch the specific PR branch into a remote-tracking branch
+            git fetch origin $PR_BRANCH:refs/remotes/origin/$PR_BRANCH || continue
             
-            # Calculate commits difference from master to PR_BRANCH
-            COMMITS_DIFF=$(git rev-list --left-only --count master...$PR_BRANCH)
+            # Calculate commits difference specifically from master to PR_BRANCH
+            COMMITS_DIFF=$(git rev-list --left-only --count origin/master...origin/$PR_BRANCH)
             
             if [ "$COMMITS_DIFF" -gt 0 ]; then
               # Check if a sync PR already exists
@@ -59,7 +59,7 @@ jobs:
           done
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      
+
 
       - name: Add sync reminder comment
         if: env.PR_ID
