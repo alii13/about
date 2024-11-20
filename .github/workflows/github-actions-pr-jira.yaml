@@ -6,32 +6,23 @@ on:
     branches: [main, staging, master, beta, develop, prod, development]
 
 jobs:
-  Check-Condition:
+  Enforce-GitHub-Jira-Link-Action:
     runs-on: ubuntu-latest
-    outputs:
-      skip: ${{ steps.check.outputs.skip }}
     steps:
       - name: Check if PR head branch is in the specified list
         id: check
         run: |
-          if [[ "main,staging,master,beta,develop,prod,development,staging-main-sync,staging-develop-sync" == *"${{ github.event.pull_request.head.ref }}"* ]]; then
+          if [[ "main staging master beta develop prod development staging-main-sync staging-develop-sync" == *"${{ github.event.pull_request.head.ref }}"* ]]; then
             echo "skip=true" >> $GITHUB_ENV
           else
             echo "skip=false" >> $GITHUB_ENV
+          fi
         shell: bash
 
-  Enforce-GitHub-Jira-Link-Action:
-    runs-on: ubuntu-latest
-    needs: Check-Condition
-    if: ${{ needs.Check-Condition.outputs.skip == 'false' }}
-    steps:
       - name: Enforce Pull Request Title includes Jira Issue Key
+        if: ${{ env.skip == 'false' }}
         uses: ryanvade/enforce-pr-title-style-action@v2.1.1
 
-  Skip-Job:
-    runs-on: ubuntu-latest
-    needs: Check-Condition
-    if: ${{ needs.Check-Condition.outputs.skip == 'true' }}
-    steps:
       - name: Skip the required job for specified branches
+        if: ${{ env.skip == 'true' }}
         run: echo "Skipping the required job as the head branch is in the specified list."
