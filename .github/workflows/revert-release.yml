@@ -38,13 +38,6 @@ jobs:
           echo "version: ${{ github.event.inputs.tag_name }}" > artifacts/deployment-metadata.json
           echo "timestamp: $(date -u +'%Y-%m-%dT%H:%M:%SZ')" >> artifacts/deployment-metadata.json
 
-      - name: Deploy to CDN
-        env:
-          CDN_API_KEY: ${{ secrets.CDN_API_KEY }}
-        run: |
-          deploy_to_cdn ./build
-          echo "Deployed version ${{ github.event.inputs.tag_name }} with metadata."
-
       # Step 5: Upload Deployment Metadata as Artifact
       - name: Upload Deployment Metadata
         uses: actions/upload-artifact@v3
