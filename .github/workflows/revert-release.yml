@@ -32,12 +32,6 @@ jobs:
           fi
         shell: bash
 
-      # Step 4: Build and Deploy
-      - name: Install Dependencies and Build
-        run: |
-          npm install
-          npm run build
-
       - name: Write Deployment Metadata
         run: |
           mkdir -p artifacts
