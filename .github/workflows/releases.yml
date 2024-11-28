@@ -87,22 +87,40 @@ jobs:
           git push origin ${{ env.new_version }}
           echo "Published tag: ${{ env.new_version }}"
 
-      # Step 7: Create GitHub Release
-      - name: Create GitHub Release
+      # Step 7: Draft Release Notes Using Release Drafter
+      - name: Draft Release Notes
+        uses: release-drafter/release-drafter@v5
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # Step 8: Fetch Draft Release Notes
+      - name: Fetch Draft Release Notes
+        id: fetch_release_notes
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const latestRelease = await github.repos.getLatestRelease({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+            });
+
+            // Capture release notes from the draft release
+            core.setOutput('release_notes', latestRelease.data.body || "No release notes available.");
+          env:
+            GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # Step 9: Create GitHub Release with Draft Notes
+      - name: Publish GitHub Release
         uses: actions/create-release@v1
         with:
           tag_name: ${{ env.new_version }}
           release_name: "Release ${{ env.new_version }}"
-          body: |
-            ## Release Notes
-            This release includes:
-            - New features
-            - Bug fixes
-            - Performance improvements
+          body: ${{ steps.fetch_release_notes.outputs.release_notes }}
           draft: false
           prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
 
 
       # Step 7: Build the Project
