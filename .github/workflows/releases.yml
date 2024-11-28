@@ -50,8 +50,8 @@ jobs:
       - name: Detect Merges and Determine Version Bump
         id: detect_merge
         run: |
-          chmod +x scripts/detect_version_bump.sh
-          version_type=$(scripts/detect_version_bump.sh ${{ env.latest_tag }})
+          chmod +x .github/scripts/detect_version_bump.sh
+          version_type=$(.github/scripts/detect_version_bump.sh ${{ env.latest_tag }})
           echo "version_type=$version_type" >> $GITHUB_ENV
           echo "Detected version type: $version_type"
 
