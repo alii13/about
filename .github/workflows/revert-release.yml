@@ -63,16 +63,16 @@ jobs:
               });
               console.log(`Published release for tag: ${tagName}`);
             }
-          env:
-            GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      # Step 4: Install Dependencies and Build
+      # Step 5: Install Dependencies and Build
       - name: Build the Project
         run: |
           npm install
           npm run build
 
-      # Step 5: Deploy to CDN
+      # Step 6: Deploy to CDN
       - name: Deploy to CDN
         env:
           CDN_API_KEY: ${{ secrets.CDN_API_KEY }}
