@@ -59,7 +59,9 @@ jobs:
       - name: Increment Version
         id: new_version
         run: |
-          IFS='.' read -r major minor patch <<< "${{ env.latest_tag/v/ }}"
+          latest_tag="${{ env.latest_tag }}"
+          latest_tag=${latest_tag#v} # Remove 'v' prefix if it exists
+          IFS='.' read -r major minor patch <<< "$latest_tag"
           version_type=${{ github.event.inputs.version_type || env.version_type }}
           
           if [ "$version_type" == "major" ]; then
