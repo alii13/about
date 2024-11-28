@@ -1,14 +1,14 @@
-name: Update Existing Tag Release
+name: Revert and Redeploy Specific Version
 
 on:
   workflow_dispatch:
     inputs:
       tag_name:
-        description: 'Enter the existing tag version to update (e.g., v1.0.4)'
+        description: 'Tag version to deploy (e.g., v1.0.4)'
         required: true
 
 jobs:
-  update-existing-release:
+  revert-and-deploy:
     runs-on: ubuntu-latest
 
     steps:
@@ -16,52 +16,40 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v3
 
-      # Step 2: Fetch All Tags
-      - name: Fetch Tags
-        run: git fetch --tags
-
-      # Step 3: Verify Specified Tag Exists
-      - name: Verify Tag Exists
+      # Step 2: Fetch Tags and Checkout Specific Tag
+      - name: Fetch and Checkout Specific Tag
         run: |
-          if ! git rev-parse ${{ github.event.inputs.tag_name }} >/dev/null 2>&1; then
-            echo "Error: Specified tag does not exist."
+          git fetch --tags
+          git checkout ${{ github.event.inputs.tag_name }}
+
+      # Step 3: Validate Checked-Out Tag
+      - name: Validate Checked-Out Tag
+        run: |
+          checked_out_tag=$(git describe --tags)
+          if [ "$checked_out_tag" != "${{ github.event.inputs.tag_name }}" ]; then
+            echo "Error: Checked-out tag ($checked_out_tag) does not match the input tag (${{ github.event.inputs.tag_name }})."
             exit 1
           fi
         shell: bash
 
-      # Step 4: Update Existing Release
-      - name: Update Existing Release
-        uses: actions/github-script@v6
-        with:
-          script: |
-            const tagName = "${{ github.event.inputs.tag_name }}";
+      # Step 4: Build and Deploy
+      - name: Install Dependencies and Build
+        run: |
+          npm install
+          npm run build
 
-            // Fetch all releases
-            const releases = await github.rest.repos.listReleases({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-            });
+      - name: Write Deployment Metadata
+        run: |
+          echo "version: ${{ github.event.inputs.tag_name }}" > ./build/deployment-metadata.json
+          echo "timestamp: $(date -u +'%Y-%m-%dT%H:%M:%SZ')" >> ./build/deployment-metadata.json
 
-            // Find the release associated with the tag
-            const existingRelease = releases.data.find(release => release.tag_name === tagName);
-
-            if (!existingRelease) {
-              throw new Error(`No release found for tag: ${tagName}`);
-            }
-
-            // Update the existing release
-            await github.rest.repos.updateRelease({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              release_id: existingRelease.id,
-              name: `Updated Release for ${tagName}`,
-              body: `This is an updated release for the tag ${tagName}.`,
-            });
-
-            console.log(`Updated release for tag: ${tagName}`);
+      - name: Deploy to CDN
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CDN_API_KEY: ${{ secrets.CDN_API_KEY }}
+        run: |
+          deploy_to_cdn ./build
+          echo "Deployed version ${{ github.event.inputs.tag_name }} with metadata."
 
-      # Step 5: Output Success Message
-      - name: Output Success
-        run: echo "The release for tag ${{ github.event.inputs.tag_name }} has been successfully updated."
+      # Step 5: Log Deployed Version
+      - name: Log Deployed Version
+        run: echo "Successfully deployed version ${{ github.event.inputs.tag_name }}"
