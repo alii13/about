@@ -1,14 +1,14 @@
-name: Publish Existing Tag
+name: Update Existing Tag Release
 
 on:
   workflow_dispatch:
     inputs:
       tag_name:
-        description: 'Enter the existing tag version to publish (e.g., v1.0.0)'
+        description: 'Enter the existing tag version to update (e.g., v1.0.4)'
         required: true
 
 jobs:
-  publish-existing-tag:
+  update-existing-release:
     runs-on: ubuntu-latest
 
     steps:
@@ -29,8 +29,8 @@ jobs:
           fi
         shell: bash
 
-      # Step 4: Publish Existing Tag as a Release
-      - name: Publish Existing Tag as Release
+      # Step 4: Update Existing Release
+      - name: Update Existing Release
         uses: actions/github-script@v6
         with:
           script: |
@@ -49,34 +49,19 @@ jobs:
               throw new Error(`No release found for tag: ${tagName}`);
             }
 
-            if (!existingRelease.draft) {
-              console.log(`The release for tag ${tagName} is already published.`);
-            } else {
-              // Update the release to publish it
-              await github.rest.repos.updateRelease({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                release_id: existingRelease.id,
-                draft: false,
-                prerelease: false,
-                body: `This release was created for the existing tag ${tagName}.`,
-              });
-              console.log(`Published release for tag: ${tagName}`);
-            }
+            // Update the existing release
+            await github.rest.repos.updateRelease({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              release_id: existingRelease.id,
+              name: `Updated Release for ${tagName}`,
+              body: `This is an updated release for the tag ${tagName}.`,
+            });
+
+            console.log(`Updated release for tag: ${tagName}`);
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      # Step 5: Install Dependencies and Build
-      - name: Build the Project
-        run: |
-          npm install
-          npm run build
-
-      # Step 6: Deploy to CDN
-      - name: Deploy to CDN
-        env:
-          CDN_API_KEY: ${{ secrets.CDN_API_KEY }}
-        run: |
-          # Replace this with your CDN deployment script
-          deploy_to_cdn ./build
-          echo "Deployed version ${{ github.event.inputs.tag_name }} to the live CDN path."
+      # Step 5: Output Success Message
+      - name: Output Success
+        run: echo "The release for tag ${{ github.event.inputs.tag_name }} has been successfully updated."
