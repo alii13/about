@@ -5,9 +5,14 @@ on:
   workflow_dispatch:
     inputs:
       version_type:
-        description: 'Override version type (major, minor, patch)'
+        description: 'Select version type (major, minor, patch)'
         required: false
-        default: '' # Empty means automatic detection
+        type: choice
+        options:
+          - major
+          - minor
+          - patch
+        default: minor # Default selection if none is provided
 
   # Scheduled triggers
   schedule:
