@@ -11,6 +11,10 @@ on:
         required: true
         default: production
 
+permissions:
+  contents: write
+  workflows: write
+
 jobs:
   revert-and-deploy:
     runs-on: ubuntu-latest
