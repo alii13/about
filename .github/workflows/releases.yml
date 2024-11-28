@@ -19,17 +19,20 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # Step 1: Checkout Repository
       - name: Checkout Repository
         uses: actions/checkout@v3
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
+      # Step 2: Fetch Latest Tags
       - name: Fetch Latest Tags
         run: |
           git fetch --tags
           latest_tag=$(git describe --tags `git rev-list --tags --max-count=1` || echo "v0.0.0")
           echo "latest_tag=$latest_tag" >> $GITHUB_ENV
 
+      # Step 3: Check for New Commits
       - name: Check for New Commits
         run: |
           latest_commit=$(git rev-parse HEAD)
@@ -41,6 +44,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      # Step 4: Detect Merges and Determine Version Bump
       - name: Detect Merges and Determine Version Bump
         id: detect_merge
         run: |
@@ -49,6 +53,7 @@ jobs:
           echo "version_type=$version_type" >> $GITHUB_ENV
           echo "Detected version type: $version_type"
 
+      # Step 5: Increment Version
       - name: Increment Version
         id: new_version
         run: |
@@ -70,6 +75,7 @@ jobs:
           echo "new_version=$new_version" >> $GITHUB_ENV
           echo "Next version: $new_version"
 
+      # Step 6: Create and Push New Tag
       - name: Create and Push Tag
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -78,46 +84,19 @@ jobs:
           git push origin ${{ env.new_version }}
           echo "Published tag: ${{ env.new_version }}"
 
-      - name: Draft Release Notes
-        uses: release-drafter/release-drafter@v5
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Fetch Draft Release Notes
-        id: fetch_release_notes
-        uses: actions/github-script@v6
-        with:
-          script: |
-            const releases = await github.rest.repos.listReleases({
-              owner: context.repo.owner,
-              repo: context.repo.repo
-            });
-
-            // Ensure there is at least one release
-            if (releases.data.length === 0) {
-              core.setOutput('release_notes', "No release notes available.");
-            } else {
-              const latestDraftRelease = releases.data.find(release => release.draft);
-              if (!latestDraftRelease) {
-                core.setOutput('release_notes', "No draft release found.");
-              } else {
-                core.setOutput('release_notes', latestDraftRelease.body || "No release notes available.");
-              }
-            }
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Publish GitHub Release
+      # Step 7: Generate and Publish GitHub Release
+      - name: Publish GitHub Release with Generated Notes
         uses: actions/create-release@v1
         with:
           tag_name: ${{ env.new_version }}
           release_name: "Release ${{ env.new_version }}"
-          body: ${{ steps.fetch_release_notes.outputs.release_notes }}
+          generate_release_notes: true
           draft: false
           prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      # Step 8: Build the Project
       - name: Install Dependencies and Build
         run: |
           npm install
@@ -125,9 +104,11 @@ jobs:
         env:
           NODE_ENV: production
 
+      # Step 9: Deploy to CDN
       - name: Deploy to CDN
         run: |
           echo "Deployed version ${{ env.new_version }} to the CDN."
 
+      # Step 10: Output New Version
       - name: Output New Version
         run: echo "Successfully deployed version ${{ env.new_version }} to the CDN."
