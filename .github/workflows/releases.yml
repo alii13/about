@@ -45,7 +45,6 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-
       # Step 4: Detect Merges and Determine Version Bump
       - name: Detect Merges and Determine Version Bump
         id: detect_merge
@@ -121,9 +120,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-
-
-      # Step 7: Build the Project
+      # Step 10: Build the Project
       - name: Install Dependencies and Build
         run: |
           npm install
@@ -131,11 +128,11 @@ jobs:
         env:
           NODE_ENV: production
 
-      # Step 8: Deploy to CDN
+      # Step 11: Deploy to CDN
       - name: Deploy to CDN
         run: |
           echo "Deployed version ${{ env.new_version }} to the CDN."
 
-      # Step 9: Output New Version
+      # Step 12: Output New Version
       - name: Output New Version
         run: echo "Successfully deployed version ${{ env.new_version }} to the CDN."
