@@ -53,9 +53,11 @@ jobs:
           git fetch origin deployment-logs:deployment-logs || git branch deployment-logs
           git checkout deployment-logs || git checkout -b deployment-logs
           cp artifacts/deployment-metadata.json .
+          rm -rf .github/workflows # Exclude workflows from this branch
           git add deployment-metadata.json
-          git commit -m "Track deployment of version ${{ github.event.inputs.tag_name }} to ${{ github.event.inputs.environment }}"
+          git commit -m "Track deployment of version ${{ github.event.inputs.tag_name }} to ${{ github.event.inputs.environment }}" || echo "No changes to commit"
           git push origin deployment-logs
+
 
       # Step 7: Upload Deployment Metadata as Artifact
       - name: Upload Deployment Metadata as Artifact
