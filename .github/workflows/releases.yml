@@ -88,7 +88,7 @@ jobs:
         uses: actions/github-script@v6
         with:
           script: |
-            const releases = await github.repos.listReleases({
+            const releases = await github.rest.repos.listReleases({
               owner: context.repo.owner,
               repo: context.repo.repo
             });
@@ -97,11 +97,11 @@ jobs:
             if (releases.data.length === 0) {
               core.setOutput('release_notes', "No release notes available.");
             } else {
-              const latestRelease = releases.data.find(release => release.draft);
-              if (!latestRelease) {
+              const latestDraftRelease = releases.data.find(release => release.draft);
+              if (!latestDraftRelease) {
                 core.setOutput('release_notes', "No draft release found.");
               } else {
-                core.setOutput('release_notes', latestRelease.body || "No release notes available.");
+                core.setOutput('release_notes', latestDraftRelease.body || "No release notes available.");
               }
             }
         env:
