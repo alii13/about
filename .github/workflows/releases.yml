@@ -19,25 +19,21 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # Step 1: Checkout Repository
       - name: Checkout Repository
         uses: actions/checkout@v3
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      # Step 2: Fetch Latest Tags
       - name: Fetch Latest Tags
         run: |
           git fetch --tags
           latest_tag=$(git describe --tags `git rev-list --tags --max-count=1` || echo "v0.0.0")
           echo "latest_tag=$latest_tag" >> $GITHUB_ENV
 
-      # Step 3: Check for New Commits
       - name: Check for New Commits
         run: |
           latest_commit=$(git rev-parse HEAD)
           tag_commit=$(git rev-list -n 1 ${{ env.latest_tag }})
-          
           if [ "$latest_commit" = "$tag_commit" ]; then
             echo "No new commits since the last tag (${env.latest_tag}). Exiting workflow."
             exit 0
@@ -45,7 +41,6 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      # Step 4: Detect Merges and Determine Version Bump
       - name: Detect Merges and Determine Version Bump
         id: detect_merge
         run: |
@@ -54,7 +49,6 @@ jobs:
           echo "version_type=$version_type" >> $GITHUB_ENV
           echo "Detected version type: $version_type"
 
-      # Step 5: Increment Version
       - name: Increment Version
         id: new_version
         run: |
@@ -62,7 +56,6 @@ jobs:
           latest_tag=${latest_tag#v} # Remove 'v' prefix if it exists
           IFS='.' read -r major minor patch <<< "$latest_tag"
           version_type=${{ github.event.inputs.version_type || env.version_type }}
-          
           if [ "$version_type" == "major" ]; then
             major=$((major+1))
             minor=0
@@ -77,7 +70,6 @@ jobs:
           echo "new_version=$new_version" >> $GITHUB_ENV
           echo "Next version: $new_version"
 
-      # Step 6: Create and Push New Tag
       - name: Create and Push Tag
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -86,13 +78,11 @@ jobs:
           git push origin ${{ env.new_version }}
           echo "Published tag: ${{ env.new_version }}"
 
-      # Step 7: Draft Release Notes Using Release Drafter
       - name: Draft Release Notes
         uses: release-drafter/release-drafter@v5
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      # Step 8: Fetch Draft Release Notes
       - name: Fetch Draft Release Notes
         id: fetch_release_notes
         uses: actions/github-script@v6
@@ -102,13 +92,10 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
             });
+            core.setOutput('release_notes', latestRelease.data.body || "No release notes available.")
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-            // Capture release notes from the draft release
-            core.setOutput('release_notes', latestRelease.data.body || "No release notes available.");
-          env:
-            GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      # Step 9: Create GitHub Release with Draft Notes
       - name: Publish GitHub Release
         uses: actions/create-release@v1
         with:
@@ -120,7 +107,6 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      # Step 10: Build the Project
       - name: Install Dependencies and Build
         run: |
           npm install
@@ -128,11 +114,9 @@ jobs:
         env:
           NODE_ENV: production
 
-      # Step 11: Deploy to CDN
       - name: Deploy to CDN
         run: |
           echo "Deployed version ${{ env.new_version }} to the CDN."
 
-      # Step 12: Output New Version
       - name: Output New Version
         run: echo "Successfully deployed version ${{ env.new_version }} to the CDN."
