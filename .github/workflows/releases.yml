@@ -88,11 +88,22 @@ jobs:
         uses: actions/github-script@v6
         with:
           script: |
-            const latestRelease = await github.repos.getLatestRelease({
+            const releases = await github.repos.listReleases({
               owner: context.repo.owner,
-              repo: context.repo.repo,
+              repo: context.repo.repo
             });
-            core.setOutput('release_notes', latestRelease.data.body || "No release notes available.")
+
+            // Ensure there is at least one release
+            if (releases.data.length === 0) {
+              core.setOutput('release_notes', "No release notes available.");
+            } else {
+              const latestRelease = releases.data.find(release => release.draft);
+              if (!latestRelease) {
+                core.setOutput('release_notes', "No draft release found.");
+              } else {
+                core.setOutput('release_notes', latestRelease.body || "No release notes available.");
+              }
+            }
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
