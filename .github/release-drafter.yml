@@ -1,13 +1,12 @@
+name-template: 'Release ${{ version }}'
+tag-template: 'v${{ version }}'
+
+change-template: '- ${{ change.title }} (#${{ change.number }})'
+
 template: |
-    ## Highlights
-    Major updates in this release include:
-    - 🚀 Features
-    - 🐛 Bug Fixes
-    - 🛠️ Maintenance tasks
+  ## What's Changed
+  ${{ changes }}
 
-    ## What's Changed
-    ${{ changes }}
-
-    ## Contributors
-    Thanks to the following people who contributed to this release:
-    ${{ contributors }}
+  ## Contributors
+  Thanks to the following people who contributed to this release:
+  ${{ contributors }}
