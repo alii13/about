@@ -6,13 +6,6 @@ on:
       tag_name:
         description: 'Tag version to deploy (e.g., v1.0.1, v1.0.2)'
         required: true
-      environment:
-        description: 'Deployment environment (e.g., production, staging)'
-        required: true
-        default: production
-
-permissions:
-  contents: write
 
 jobs:
   revert-and-deploy:
@@ -43,7 +36,7 @@ jobs:
       - name: Write Deployment Metadata
         run: |
           mkdir -p artifacts
-          echo "{ \"version\": \"${{ github.event.inputs.tag_name }}\", \"commit\": \"$(git rev-parse HEAD)\", \"deployed_by\": \"github-actions[bot]\", \"deployed_at\": \"$(date -u +'%Y-%m-%dT%H:%M:%SZ')\", \"environment\": \"${{ github.event.inputs.environment }}\" }" > artifacts/deployment-metadata.json
+          echo "{ \"version\": \"${{ github.event.inputs.tag_name }}\", \"commit\": \"$(git rev-parse HEAD)\", \"deployed_by\": \"github-actions[bot]\", \"deployed_at\": \"$(date -u +'%Y-%m-%dT%H:%M:%SZ')\" }" > artifacts/deployment-metadata.json
 
       # Step 6: Push Deployment Metadata to Git
       - name: Push Deployment Metadata to Logs Branch
@@ -53,11 +46,9 @@ jobs:
           git fetch origin deployment-logs:deployment-logs || git branch deployment-logs
           git checkout deployment-logs || git checkout -b deployment-logs
           cp artifacts/deployment-metadata.json .
-          rm -rf .github/workflows # Exclude workflows from this branch
           git add deployment-metadata.json
-          git commit -m "Track deployment of version ${{ github.event.inputs.tag_name }} to ${{ github.event.inputs.environment }}" || echo "No changes to commit"
+          git commit -m "Track deployment of version ${{ github.event.inputs.tag_name }}"
           git push origin deployment-logs
-
 
       # Step 7: Upload Deployment Metadata as Artifact
       - name: Upload Deployment Metadata as Artifact
@@ -68,4 +59,4 @@ jobs:
 
       # Step 8: Log Deployed Version
       - name: Log Deployed Version
-        run: echo "Successfully deployed version ${{ github.event.inputs.tag_name }} to the ${{ github.event.inputs.environment }} environment."
+        run: echo "Successfully deployed version ${{ github.event.inputs.tag_name }}"
