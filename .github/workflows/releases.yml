@@ -47,9 +47,11 @@ jobs:
             echo "No new commits since the last tag ($LATEST_TAG). Exiting workflow successfully."
             echo "skip_deployment=true" >> $GITHUB_ENV
           else
+            echo "New commits detected. Proceeding with deployment."
             echo "skip_deployment=false" >> $GITHUB_ENV
         env:
           LATEST_TAG: ${{ env.latest_tag }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       # Step 4: Detect Merges and Determine Version Bump
       - name: Detect Merges and Determine Version Bump
