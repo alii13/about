@@ -39,20 +39,22 @@ jobs:
 
       # Step 3: Check for New Commits
       - name: Check for New Commits
+        id: check_commits
         run: |
           latest_commit=$(git rev-parse HEAD)
           tag_commit=$(git rev-list -n 1 $LATEST_TAG)
           if [ "$latest_commit" = "$tag_commit" ]; then
             echo "No new commits since the last tag ($LATEST_TAG). Exiting workflow successfully."
-            exit 0
-          fi
+            echo "skip_deployment=true" >> $GITHUB_ENV
+          else
+            echo "skip_deployment=false" >> $GITHUB_ENV
         env:
           LATEST_TAG: ${{ env.latest_tag }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       # Step 4: Detect Merges and Determine Version Bump
       - name: Detect Merges and Determine Version Bump
         id: detect_merge
+        if: env.skip_deployment == 'false'
         run: |
           chmod +x .github/scripts/detect_version_bump.sh
           version_type=$(.github/scripts/detect_version_bump.sh ${{ env.latest_tag }})
@@ -62,6 +64,7 @@ jobs:
       # Step 5: Increment Version
       - name: Increment Version
         id: new_version
+        if: env.skip_deployment == 'false'
         run: |
           latest_tag="${{ env.latest_tag }}"
           latest_tag=${latest_tag#v} # Remove 'v' prefix if it exists
@@ -83,6 +86,7 @@ jobs:
 
       # Step 6: Create and Push New Tag
       - name: Create and Push Tag
+        if: env.skip_deployment == 'false'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -90,58 +94,75 @@ jobs:
           git push origin ${{ env.new_version }}
           echo "Published tag: ${{ env.new_version }}"
 
-      # Step 7: Generate and Publish GitHub Release
-      - name: Publish GitHub Release with Generated Notes
+      # Step 7: Publish GitHub Release
+      - name: Publish GitHub Release
+        if: env.skip_deployment == 'false'
         uses: actions/create-release@v1
         with:
           tag_name: ${{ env.new_version }}
           release_name: "Release ${{ env.new_version }}"
           generate_release_notes: true
-          draft: false
-          prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-
-      # Step 5: Write Deployment Metadata
+      # Step 8: Write Deployment Metadata
       - name: Write Deployment Metadata
+        if: env.skip_deployment == 'false'
         run: |
           mkdir -p artifacts
-          echo "{ \"version\": \"${{ github.event.inputs.tag_name }}\", \"commit\": \"$(git rev-parse HEAD)\", \"deployed_by\": \"github-actions[bot]\", \"deployed_at\": \"$(date -u +'%Y-%m-%dT%H:%M:%SZ')\" }" > artifacts/deployment-metadata.json
+          echo "{ \"version\": \"${{ env.new_version }}\", \"commit\": \"$(git rev-parse HEAD)\", \"deployed_by\": \"github-actions[bot]\", \"deployed_at\": \"$(date -u +'%Y-%m-%dT%H:%M:%SZ')\" }" > artifacts/deployment-metadata.json
 
-      # Step 6: Push Deployment Metadata to Git
+      # Step 9: Push Deployment Metadata to Git
       - name: Push Deployment Metadata to Logs Branch
+        if: env.skip_deployment == 'false'
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          git fetch origin deployment-logs:deployment-logs || git branch deployment-logs
-          git checkout deployment-logs || git checkout -b deployment-logs
+
+          # Stash any uncommitted changes to avoid conflicts
+          git stash --include-untracked
+
+          # Ensure the branch exists locally
+          git fetch origin deployment-logs:deployment-logs || true
+          if ! git rev-parse --verify deployment-logs >/dev/null 2>&1; then
+            git checkout -b deployment-logs
+          else
+            git checkout deployment-logs
+          fi
+
+          # Apply stashed changes (if any) and copy deployment metadata
+          git stash pop || true
           cp artifacts/deployment-metadata.json .
+
+          # Commit and push changes
           git add deployment-metadata.json
-          git commit -m "Track deployment of version ${{ github.event.inputs.tag_name }}"
+          git commit -m "Track deployment of version ${{ env.new_version }}"
           git push origin deployment-logs
 
-      # Step 7: Upload Deployment Metadata as Artifact
+      # Step 10: Upload Deployment Metadata as Artifact
       - name: Upload Deployment Metadata as Artifact
+        if: env.skip_deployment == 'false'
         uses: actions/upload-artifact@v3
         with:
           name: deployment-metadata
           path: artifacts/deployment-metadata.json
 
-
-      # Step 8: Build the Project
+      # Step 11: Build the Project
       - name: Install Dependencies and Build
+        if: env.skip_deployment == 'false'
         run: |
           npm install
           npm run build
         env:
           NODE_ENV: production
 
-      # Step 9: Deploy to CDN
+      # Step 12: Deploy to CDN
       - name: Deploy to CDN
+        if: env.skip_deployment == 'false'
         run: |
           echo "Deployed version ${{ env.new_version }} to the CDN."
 
-      # Step 10: Output New Version
+      # Step 13: Output New Version
       - name: Output New Version
+        if: env.skip_deployment == 'false'
         run: echo "Successfully deployed version ${{ env.new_version }} to the CDN."
