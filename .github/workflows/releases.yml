@@ -119,6 +119,14 @@ jobs:
           # Save the new version for later steps
           echo "new_version=$new_version" >> $GITHUB_ENV
 
+      # Step 5: Generate Deployment Metadata
+      - name: Generate Deployment Metadata
+        if: env.skip_deployment == 'false'
+        run: |
+          mkdir -p artifacts
+          echo "{ \"version\": \"${{ env.new_version }}\", \"commit\": \"$(git rev-parse HEAD)\", \"deployed_by\": \"github-actions[bot]\", \"deployed_at\": \"$(date -u +'%Y-%m-%dT%H:%M:%SZ')\" }" > artifacts/deployment-metadata.json
+
+
       # Step: Publish GitHub Release
       - name: Publish GitHub Release
         if: env.skip_deployment == 'false'
@@ -130,16 +138,21 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+     # Step 5: Generate Deployment Metadata
+      - name: Generate Deployment Metadata
+        if: env.skip_deployment == 'false'
+        run: |
+          mkdir -p artifacts
+          echo "{ \"version\": \"${{ env.new_version }}\", \"commit\": \"$(git rev-parse HEAD)\", \"deployed_by\": \"github-actions[bot]\", \"deployed_at\": \"$(date -u +'%Y-%m-%dT%H:%M:%SZ')\" }" > artifacts/deployment-metadata.json
+
+      # Step 6: Push Deployment Metadata to Logs Branch
       - name: Push Deployment Metadata to Logs Branch
         if: env.skip_deployment == 'false'
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
 
-          # Save any uncommitted changes
           git stash --include-untracked
-
-          # Ensure the branch exists locally
           git fetch origin deployment-logs:deployment-logs || true
           if ! git rev-parse --verify deployment-logs >/dev/null 2>&1; then
             git checkout -b deployment-logs
@@ -147,25 +160,20 @@ jobs:
             git checkout deployment-logs
           fi
 
-          # Apply stashed changes
           git stash pop || true
 
-          # Resolve conflicts automatically for deleted files
           git ls-files -u | grep -E '\.github/scripts/detect_version_bump\.sh' | awk '{print $4}' | xargs -I{} git rm --ignore-unmatch {}
-          
-          # Add all other changes
           git add .
-
-          # Commit resolved changes
           git commit -m "Resolve conflicts and track deployment metadata" || true
 
-          # Copy and stage deployment metadata
-          mkdir -p artifacts
-          cp artifacts/deployment-metadata.json .
-          git add artifacts/deployment-metadata.json
-          git commit -m "Track deployment of version ${{ env.new_version }}" || true
+          if [ -f artifacts/deployment-metadata.json ]; then
+            cp artifacts/deployment-metadata.json .
+            git add artifacts/deployment-metadata.json
+            git commit -m "Track deployment of version ${{ env.new_version }}" || true
+          else
+            echo "Warning: Deployment metadata file not found. Skipping."
+          fi
 
-          # Push changes to remote
           git push origin deployment-logs
 
       # Step 10: Upload Deployment Metadata as Artifact
