@@ -41,12 +41,13 @@ jobs:
       - name: Check for New Commits
         run: |
           latest_commit=$(git rev-parse HEAD)
-          tag_commit=$(git rev-list -n 1 ${{ env.latest_tag }})
+          tag_commit=$(git rev-list -n 1 $LATEST_TAG)
           if [ "$latest_commit" = "$tag_commit" ]; then
-            echo "No new commits since the last tag (${env.latest_tag}). Exiting workflow."
+            echo "No new commits since the last tag ($LATEST_TAG). Exiting workflow successfully."
             exit 0
           fi
         env:
+          LATEST_TAG: ${{ env.latest_tag }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       # Step 4: Detect Merges and Determine Version Bump
@@ -100,6 +101,33 @@ jobs:
           prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+
+      # Step 5: Write Deployment Metadata
+      - name: Write Deployment Metadata
+        run: |
+          mkdir -p artifacts
+          echo "{ \"version\": \"${{ github.event.inputs.tag_name }}\", \"commit\": \"$(git rev-parse HEAD)\", \"deployed_by\": \"github-actions[bot]\", \"deployed_at\": \"$(date -u +'%Y-%m-%dT%H:%M:%SZ')\" }" > artifacts/deployment-metadata.json
+
+      # Step 6: Push Deployment Metadata to Git
+      - name: Push Deployment Metadata to Logs Branch
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git fetch origin deployment-logs:deployment-logs || git branch deployment-logs
+          git checkout deployment-logs || git checkout -b deployment-logs
+          cp artifacts/deployment-metadata.json .
+          git add deployment-metadata.json
+          git commit -m "Track deployment of version ${{ github.event.inputs.tag_name }}"
+          git push origin deployment-logs
+
+      # Step 7: Upload Deployment Metadata as Artifact
+      - name: Upload Deployment Metadata as Artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: deployment-metadata
+          path: artifacts/deployment-metadata.json
+
 
       # Step 8: Build the Project
       - name: Install Dependencies and Build
