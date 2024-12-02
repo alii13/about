@@ -152,6 +152,10 @@ jobs:
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
 
+          # Remove any uncommitted or conflicting files to ensure a clean state
+          git reset --hard
+          git clean -fdx
+
           # Ensure the branch exists locally
           git fetch origin deployment-logs:deployment-logs || true
           if ! git rev-parse --verify deployment-logs >/dev/null 2>&1; then
