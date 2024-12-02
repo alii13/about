@@ -78,11 +78,8 @@ jobs:
           version_type=$(.github/scripts/detect_version_bump.sh ${{ env.latest_tag }})
           echo "version_type=$version_type" >> $GITHUB_ENV
 
-      # Step 4: Create and Push New Tag
-      - name: Create and Push New Tag
+      - name: Increment Version
         if: env.skip_deployment == 'false'
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           # Fetch and parse the latest tag
           git fetch --tags --force
@@ -103,7 +100,20 @@ jobs:
           fi
           new_version="v$major.$minor.$patch"
 
-          echo "New version to create: $new_version"
+          echo "New version: $new_version"
+
+          # Save the new version for later steps
+          echo "new_version=$new_version" >> $GITHUB_ENV
+
+          
+      - name: Create and Push New Tag
+        if: env.skip_deployment == 'false'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Use the new version from the previous step
+          new_version="${{ env.new_version }}"
+          echo "Creating and pushing new tag: $new_version"
 
           # Check if the tag already exists
           if git rev-parse "$new_version" >/dev/null 2>&1; then
@@ -115,9 +125,6 @@ jobs:
           git tag $new_version
           git push origin $new_version
           echo "Published new tag: $new_version"
-
-          # Save the new version for later steps
-          echo "new_version=$new_version" >> $GITHUB_ENV
 
       # Step 5: Generate Deployment Metadata
       - name: Generate Deployment Metadata
