@@ -152,7 +152,10 @@ jobs:
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
 
+          # Stash uncommitted changes
           git stash --include-untracked
+
+          # Ensure the branch exists locally
           git fetch origin deployment-logs:deployment-logs || true
           if ! git rev-parse --verify deployment-logs >/dev/null 2>&1; then
             git checkout -b deployment-logs
@@ -160,21 +163,23 @@ jobs:
             git checkout deployment-logs
           fi
 
+          # Apply stashed changes and handle conflicts
           git stash pop || true
-
           git ls-files -u | grep -E '\.github/scripts/detect_version_bump\.sh' | awk '{print $4}' | xargs -I{} git rm --ignore-unmatch {}
-          git add .
-          git commit -m "Track deployment of version ${{ env.new_version }}" || true
-
+          
+          # Ensure deployment metadata is added
           if [ -f artifacts/deployment-metadata.json ]; then
             cp artifacts/deployment-metadata.json .
             git add artifacts/deployment-metadata.json
-            git commit -m "Track deployment of version ${{ env.new_version }}" || true
-          else
-            echo "Warning: Deployment metadata file not found. Skipping."
           fi
 
-          git push origin deployment-logs
+          # Stage all other changes and commit
+          git add -u
+          git commit -m "Track deployment of version ${{ env.new_version }} to production" || echo "Nothing to commit"
+
+          # Push changes if any exist
+          git diff-index --quiet HEAD || git push origin deployment-logs
+
 
       # Step 10: Upload Deployment Metadata as Artifact
       - name: Upload Deployment Metadata as Artifact
