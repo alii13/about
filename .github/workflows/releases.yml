@@ -165,7 +165,7 @@ jobs:
           # Resolve conflicts automatically for deleted files
           git ls-files -u | grep -E '\.github/scripts/detect_version_bump\.sh' | awk '{print $4}' | xargs -I{} git rm --ignore-unmatch {}
           git add .
-          git commit -m "Resolve conflicts and track deployment metadata" || true
+          git commit -m "Track deployment of version ${{ env.new_version }}" || true
 
           # Check if deployment metadata exists and copy it
           if [ -f artifacts/deployment-metadata.json ]; then
