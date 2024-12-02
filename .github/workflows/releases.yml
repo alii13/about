@@ -128,14 +128,14 @@ jobs:
           mkdir -p artifacts
           echo "{ \"version\": \"${{ env.new_version }}\", \"commit\": \"$(git rev-parse HEAD)\", \"deployed_by\": \"github-actions[bot]\", \"deployed_at\": \"$(date -u +'%Y-%m-%dT%H:%M:%SZ')\" }" > artifacts/deployment-metadata.json
 
-      # Step 9: Push Deployment Metadata to Git
+      # Step: Push Deployment Metadata to Logs Branch
       - name: Push Deployment Metadata to Logs Branch
         if: env.skip_deployment == 'false'
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
 
-          # Stash any uncommitted changes to avoid conflicts
+          # Save any uncommitted changes
           git stash --include-untracked
 
           # Ensure the branch exists locally
@@ -146,12 +146,17 @@ jobs:
             git checkout deployment-logs
           fi
 
-          # Apply stashed changes (if any) and copy deployment metadata
+          # Apply stashed changes, resolving conflicts automatically
           git stash pop || true
+          git add . # Automatically stage changes
+          git commit -m "Resolve conflicts and track deployment metadata"
+
+          # Copy deployment metadata
+          mkdir -p artifacts
           cp artifacts/deployment-metadata.json .
 
-          # Commit and push changes
-          git add deployment-metadata.json
+          # Add metadata changes and push
+          git add artifacts/deployment-metadata.json
           git commit -m "Track deployment of version ${{ env.new_version }}"
           git push origin deployment-logs
 
