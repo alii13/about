@@ -164,7 +164,7 @@ jobs:
 
           git ls-files -u | grep -E '\.github/scripts/detect_version_bump\.sh' | awk '{print $4}' | xargs -I{} git rm --ignore-unmatch {}
           git add .
-          git commit -m "Resolve conflicts and track deployment metadata" || true
+          git commit -m "Track deployment of version ${{ env.new_version }}" || true
 
           if [ -f artifacts/deployment-metadata.json ]; then
             cp artifacts/deployment-metadata.json .
