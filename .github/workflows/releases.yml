@@ -78,14 +78,19 @@ jobs:
           version_type=$(.github/scripts/detect_version_bump.sh ${{ env.latest_tag }})
           echo "version_type=$version_type" >> $GITHUB_ENV
 
-      # Step 4: Create and Push Tag
-      - name: Create and Push Tag
+      # Step 4: Create and Push New Tag
+      - name: Create and Push New Tag
         if: env.skip_deployment == 'false'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          # Fetch and parse the latest tag
+          git fetch --tags --force
+          latest_tag=$(git describe --tags `git rev-list --tags --max-count=1` || echo "v0.0.0")
+          echo "Latest tag: $latest_tag"
+
           # Increment the version
-          IFS='.' read -r major minor patch <<< "${LATEST_TAG#v}"
+          IFS='.' read -r major minor patch <<< "${latest_tag#v}"
           if [ "${{ github.event.inputs.version_type || env.version_type }}" == "major" ]; then
             major=$((major+1))
             minor=0
@@ -98,9 +103,11 @@ jobs:
           fi
           new_version="v$major.$minor.$patch"
 
+          echo "New version to create: $new_version"
+
           # Check if the tag already exists
           if git rev-parse "$new_version" >/dev/null 2>&1; then
-            echo "Tag $new_version already exists. Skipping creation."
+            echo "Tag $new_version already exists. Skipping tag creation."
             exit 0
           fi
 
@@ -108,9 +115,11 @@ jobs:
           git tag $new_version
           git push origin $new_version
           echo "Published new tag: $new_version"
+
+          # Save the new version for later steps
           echo "new_version=$new_version" >> $GITHUB_ENV
 
-      # Step 7: Publish GitHub Release
+      # Step: Publish GitHub Release
       - name: Publish GitHub Release
         if: env.skip_deployment == 'false'
         uses: actions/create-release@v1
