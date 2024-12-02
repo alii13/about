@@ -130,13 +130,6 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      # Step 8: Write Deployment Metadata
-      - name: Write Deployment Metadata
-        if: env.skip_deployment == 'false'
-        run: |
-          mkdir -p artifacts
-          echo "{ \"version\": \"${{ env.new_version }}\", \"commit\": \"$(git rev-parse HEAD)\", \"deployed_by\": \"github-actions[bot]\", \"deployed_at\": \"$(date -u +'%Y-%m-%dT%H:%M:%SZ')\" }" > artifacts/deployment-metadata.json
-
       - name: Push Deployment Metadata to Logs Branch
         if: env.skip_deployment == 'false'
         run: |
@@ -154,12 +147,16 @@ jobs:
             git checkout deployment-logs
           fi
 
-          # Apply stashed changes, resolving conflicts automatically
+          # Apply stashed changes
           git stash pop || true
 
-          # Resolve conflicts by keeping the branch version of deleted files
-          git ls-files -u | awk '{print $4}' | xargs -I{} git restore --staged "{}"
-          git add . # Automatically stage remaining changes
+          # Resolve conflicts automatically for deleted files
+          git ls-files -u | grep -E '\.github/scripts/detect_version_bump\.sh' | awk '{print $4}' | xargs -I{} git rm --ignore-unmatch {}
+          
+          # Add all other changes
+          git add .
+
+          # Commit resolved changes
           git commit -m "Resolve conflicts and track deployment metadata" || true
 
           # Copy and stage deployment metadata
@@ -168,7 +165,7 @@ jobs:
           git add artifacts/deployment-metadata.json
           git commit -m "Track deployment of version ${{ env.new_version }}" || true
 
-          # Push the changes
+          # Push changes to remote
           git push origin deployment-logs
 
       # Step 10: Upload Deployment Metadata as Artifact
