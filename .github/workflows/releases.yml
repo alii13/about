@@ -12,7 +12,7 @@ on:
           - major
           - minor
           - patch
-        default: minor # Default selection if none is provided
+        default: minor
 
   # Scheduled triggers
   schedule:
@@ -51,7 +51,6 @@ jobs:
             echo "skip_deployment=false" >> $GITHUB_ENV
         env:
           LATEST_TAG: ${{ env.latest_tag }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       # Step 4: Detect Merges and Determine Version Bump
       - name: Detect Merges and Determine Version Bump
@@ -61,7 +60,6 @@ jobs:
           chmod +x .github/scripts/detect_version_bump.sh
           version_type=$(.github/scripts/detect_version_bump.sh ${{ env.latest_tag }})
           echo "version_type=$version_type" >> $GITHUB_ENV
-          echo "Detected version type: $version_type"
 
       # Step 5: Increment Version
       - name: Increment Version
@@ -84,7 +82,6 @@ jobs:
           fi
           new_version="v$major.$minor.$patch"
           echo "new_version=$new_version" >> $GITHUB_ENV
-          echo "Next version: $new_version"
 
       # Step 6: Create and Push New Tag
       - name: Create and Push Tag
