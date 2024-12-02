@@ -65,37 +65,39 @@ jobs:
           version_type=$(.github/scripts/detect_version_bump.sh ${{ env.latest_tag }})
           echo "version_type=$version_type" >> $GITHUB_ENV
 
-      # Step 5: Increment Version
-      - name: Increment Version
-        id: new_version
+      - name: Create and Push Tag
         if: env.skip_deployment == 'false'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          latest_tag="${{ env.latest_tag }}"
-          latest_tag=${latest_tag#v} # Remove 'v' prefix if it exists
-          IFS='.' read -r major minor patch <<< "$latest_tag"
-          version_type=${{ github.event.inputs.version_type || env.version_type }}
-          if [ "$version_type" == "major" ]; then
+          # Fetch all tags
+          git fetch --tags
+
+          # Ensure we have the latest tags locally
+          latest_tag=$(git describe --tags `git rev-list --tags --max-count=1` || echo "v0.0.0")
+          echo "Latest tag: $latest_tag"
+
+          # Increment the version
+          IFS='.' read -r major minor patch <<< "${latest_tag#v}" # Remove 'v' prefix
+          if [ "${{ github.event.inputs.version_type || env.version_type }}" == "major" ]; then
             major=$((major+1))
             minor=0
             patch=0
-          elif [ "$version_type" == "minor" ]; then
+          elif [ "${{ github.event.inputs.version_type || env.version_type }}" == "minor" ]; then
             minor=$((minor+1))
             patch=0
           else
             patch=$((patch+1))
           fi
           new_version="v$major.$minor.$patch"
-          echo "new_version=$new_version" >> $GITHUB_ENV
 
-      # Step 6: Create and Push New Tag
-      - name: Create and Push Tag
-        if: env.skip_deployment == 'false'
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          git tag ${{ env.new_version }}
-          git push origin ${{ env.new_version }}
-          echo "Published tag: ${{ env.new_version }}"
+          # Create and push the new tag
+          git tag $new_version
+          git push origin $new_version
+          echo "Published new tag: $new_version"
+
+          # Save the new version for later steps
+          echo "new_version=$new_version" >> $GITHUB_ENV
 
       # Step 7: Publish GitHub Release
       - name: Publish GitHub Release
