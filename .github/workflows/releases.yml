@@ -81,29 +81,48 @@ jobs:
       - name: Increment Version
         if: env.skip_deployment == 'false'
         run: |
-          # Fetch and parse the latest tag
+          # Fetch all tags
           git fetch --tags --force
-          latest_tag=$(git describe --tags `git rev-list --tags --max-count=1` || echo "v0.0.0")
-          echo "Latest tag: $latest_tag"
+          
+          # Get the latest valid tag in vX.Y.Z format
+          latest_tag=$(git tag --list "v[0-9]*.[0-9]*.[0-9]*" | sort -V | tail -n 1)
+          if [ -z "$latest_tag" ]; then
+            latest_tag="v0.0.0"
+          fi
+          echo "Latest valid tag: $latest_tag"
 
-          # Increment the version
-          IFS='.' read -r major minor patch <<< "${latest_tag#v}"
+          # Strip the 'v' prefix for parsing
+          version="${latest_tag#v}"
+
+          # Parse the major, minor, and patch components
+          IFS='.' read -r major minor patch <<< "$version"
+
+          # Ensure default values for missing components
+          major=${major:-0}
+          minor=${minor:-0}
+          patch=${patch:-0}
+
+          echo "Parsed version: major=$major, minor=$minor, patch=$patch"
+
+          # Increment the version based on input
           if [ "${{ github.event.inputs.version_type || env.version_type }}" == "major" ]; then
-            major=$((major+1))
+            major=$((major + 1))
             minor=0
             patch=0
           elif [ "${{ github.event.inputs.version_type || env.version_type }}" == "minor" ]; then
-            minor=$((minor+1))
+            minor=$((minor + 1))
             patch=0
           else
-            patch=$((patch+1))
+            patch=$((patch + 1))
           fi
-          new_version="v$major.$minor.$patch"
 
+          # Construct the new tag
+          new_version="v$major.$minor.$patch"
           echo "New version: $new_version"
 
           # Save the new version for later steps
           echo "new_version=$new_version" >> $GITHUB_ENV
+
 
           
       - name: Create and Push New Tag
