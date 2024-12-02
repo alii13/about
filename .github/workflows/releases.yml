@@ -41,14 +41,18 @@ jobs:
       - name: Check for New Commits
         id: check_commits
         run: |
+          # Fetch the latest commit and tag commit
           latest_commit=$(git rev-parse HEAD)
           tag_commit=$(git rev-list -n 1 $LATEST_TAG)
+
+          # Compare the latest commit with the tagged commit
           if [ "$latest_commit" = "$tag_commit" ]; then
             echo "No new commits since the last tag ($LATEST_TAG). Exiting workflow successfully."
             echo "skip_deployment=true" >> $GITHUB_ENV
           else
             echo "New commits detected. Proceeding with deployment."
             echo "skip_deployment=false" >> $GITHUB_ENV
+          fi
         env:
           LATEST_TAG: ${{ env.latest_tag }}
 
