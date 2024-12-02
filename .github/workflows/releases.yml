@@ -137,7 +137,6 @@ jobs:
           mkdir -p artifacts
           echo "{ \"version\": \"${{ env.new_version }}\", \"commit\": \"$(git rev-parse HEAD)\", \"deployed_by\": \"github-actions[bot]\", \"deployed_at\": \"$(date -u +'%Y-%m-%dT%H:%M:%SZ')\" }" > artifacts/deployment-metadata.json
 
-      # Step: Push Deployment Metadata to Logs Branch
       - name: Push Deployment Metadata to Logs Branch
         if: env.skip_deployment == 'false'
         run: |
@@ -157,16 +156,19 @@ jobs:
 
           # Apply stashed changes, resolving conflicts automatically
           git stash pop || true
-          git add . # Automatically stage changes
-          git commit -m "Resolve conflicts and track deployment metadata"
 
-          # Copy deployment metadata
+          # Resolve conflicts by keeping the branch version of deleted files
+          git ls-files -u | awk '{print $4}' | xargs -I{} git restore --staged "{}"
+          git add . # Automatically stage remaining changes
+          git commit -m "Resolve conflicts and track deployment metadata" || true
+
+          # Copy and stage deployment metadata
           mkdir -p artifacts
           cp artifacts/deployment-metadata.json .
-
-          # Add metadata changes and push
           git add artifacts/deployment-metadata.json
-          git commit -m "Track deployment of version ${{ env.new_version }}"
+          git commit -m "Track deployment of version ${{ env.new_version }}" || true
+
+          # Push the changes
           git push origin deployment-logs
 
       # Step 10: Upload Deployment Metadata as Artifact
