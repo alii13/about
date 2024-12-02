@@ -33,8 +33,18 @@ jobs:
       # Step 2: Fetch Latest Tags
       - name: Fetch Latest Tags
         run: |
-          git fetch --tags
-          latest_tag=$(git describe --tags `git rev-list --tags --max-count=1` || echo "v0.0.0")
+          # Fetch and synchronize all tags
+          git fetch --tags --force
+
+          # Identify the latest tag
+          latest_tag=$(git tag --list | sort -V | tail -n 1)
+
+          # Fallback if no tags exist
+          if [ -z "$latest_tag" ]; then
+            latest_tag="v0.0.0"
+          fi
+
+          echo "Latest tag: $latest_tag"
           echo "latest_tag=$latest_tag" >> $GITHUB_ENV
 
       # Step 3: Check for New Commits
