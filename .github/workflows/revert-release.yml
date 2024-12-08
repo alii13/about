@@ -1,0 +1,62 @@
+name: Revert and Redeploy Specific Version
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: 'Tag version to deploy (e.g., v1.0.1, v1.0.2)'
+        required: true
+
+jobs:
+  revert-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      # Step 1: Checkout Repository
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      # Step 2: Fetch Tags and Checkout Specific Tag
+      - name: Fetch and Checkout Specific Tag
+        run: |
+          git fetch --tags
+          git checkout ${{ github.event.inputs.tag_name }}
+
+      # Step 3: Validate Checked-Out Tag
+      - name: Validate Checked-Out Tag
+        run: |
+          checked_out_tag=$(git describe --tags)
+          if [ "$checked_out_tag" != "${{ github.event.inputs.tag_name }}" ]; then
+            echo "Error: Checked-out tag ($checked_out_tag) does not match the input tag (${{ github.event.inputs.tag_name }})."
+            exit 1
+          fi
+        shell: bash
+
+      # Step 5: Write Deployment Metadata
+      - name: Write Deployment Metadata
+        run: |
+          mkdir -p artifacts
+          echo "{ \"version\": \"${{ github.event.inputs.tag_name }}\", \"commit\": \"$(git rev-parse HEAD)\", \"deployed_by\": \"github-actions[bot]\", \"deployed_at\": \"$(date -u +'%Y-%m-%dT%H:%M:%SZ')\" }" > artifacts/deployment-metadata.json
+
+      # Step 6: Push Deployment Metadata to Git
+      - name: Push Deployment Metadata to Logs Branch
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git fetch origin deployment-logs:deployment-logs || git branch deployment-logs
+          git checkout deployment-logs || git checkout -b deployment-logs
+          cp artifacts/deployment-metadata.json .
+          git add deployment-metadata.json
+          git commit -m "Track deployment of version ${{ github.event.inputs.tag_name }}"
+          git push origin deployment-logs
+
+      # Step 7: Upload Deployment Metadata as Artifact
+      - name: Upload Deployment Metadata as Artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: deployment-metadata
+          path: artifacts/deployment-metadata.json
+
+      # Step 8: Log Deployed Version
+      - name: Log Deployed Version
+        run: echo "Successfully deployed version ${{ github.event.inputs.tag_name }}"
