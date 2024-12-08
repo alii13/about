@@ -1,0 +1,12 @@
+name-template: 'Release ${{ version }}'
+tag-template: 'v${{ version }}'
+
+change-template: '- ${{ change.title }} (#${{ change.number }})'
+
+template: |
+  ## What's Changed
+  ${{ changes }}
+
+  ## Contributors
+  Thanks to the following people who contributed to this release:
+  ${{ contributors }}
