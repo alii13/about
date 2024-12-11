@@ -39,7 +39,14 @@ jobs:
       # Step 5: Write Deployment Metadata
       - name: Write Deployment Metadata
         run: |
-          echo "{ \"version\": \"${{ github.event.inputs.tag_name }}\", \"commit\": \"$(git rev-parse HEAD)\", \"deployed_by\": \"github-actions[bot]\", \"deployed_at\": \"$(date -u +'%Y-%m-%dT%H:%M:%SZ')\" }" > deployment-metadata.json
+          echo "{ \
+            \"version\": \"${{ github.event.inputs.tag_name }}\", \
+            \"commit\": \"$(git rev-parse HEAD)\", \
+            \"deployed_by\": \"github-actions[bot]\", \
+            \"deployed_at\": \"$(date -u +'%Y-%m-%dT%H:%M:%SZ')\", \
+            \"tag\": \"${{ github.event.inputs.tag_name }}\", \
+            \"deployment_id\": \"$(date +'%Y%m%d-%H%M%S')\" \
+          }" > deployment-metadata.json
 
 
       # Step 8: Push Deployment Metadata to Logs Branch
