@@ -49,16 +49,22 @@ jobs:
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
 
+          # Check if the metadata file exists and temporarily move it
+          if [ -f artifacts/deployment-metadata.json ]; then
+            mv artifacts/deployment-metadata.json artifacts/deployment-metadata.json.bak
+          fi
+
           # Fetch the remote branch or create it locally
           git fetch origin deployment-logs || echo "Branch does not exist remotely"
           git checkout deployment-logs || git checkout -b deployment-logs
 
-          # Stage the deployment metadata file
-          git add artifacts/deployment-metadata.json
+          # Restore the metadata file after switching branches
+          if [ -f artifacts/deployment-metadata.json.bak ]; then
+            mv artifacts/deployment-metadata.json.bak artifacts/deployment-metadata.json
+          fi
 
-          # Show staged changes (git status)
-          echo "### Debug: git status"
-          git status
+          # Stage only the deployment metadata file
+          git add artifacts/deployment-metadata.json
 
           # Commit the changes
           git commit -m "Track deployment of version ${{ github.event.inputs.tag_name }}" || echo "No changes to commit"
