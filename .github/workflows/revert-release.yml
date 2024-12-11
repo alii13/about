@@ -44,22 +44,22 @@ jobs:
 
 
       # Step 8: Push Deployment Metadata to Logs Branch
-      - name: Push Deployment Metadata to Logs Branch
+      - name: Generate and Push Deployment Metadata
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
 
           # Fetch the remote branch or create it locally
           git fetch origin deployment-logs || echo "Branch does not exist remotely"
-          if git show-ref --verify --quiet refs/heads/deployment-logs; then
-            git checkout deployment-logs
-          else
-            git checkout -b deployment-logs
-          fi
+          git checkout deployment-logs || git checkout -b deployment-logs
 
-          # Stage the deployment metadata file created in Step 5
+          # Stage the deployment metadata file
           git add artifacts/deployment-metadata.json
+
+          # Show staged changes (git status)
+          echo "### Debug: git status"
           git status
+
           # Commit the changes
           git commit -m "Track deployment of version ${{ github.event.inputs.tag_name }}" || echo "No changes to commit"
 
