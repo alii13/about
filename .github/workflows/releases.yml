@@ -142,11 +142,9 @@ jobs:
           echo "Published new tag: $new_version"
 
       # Step 6: Generate Deployment Metadata
-      - name: Generate Deployment Metadata
-        if: env.skip_deployment == 'false'
+      - name: Write Deployment Metadata
         run: |
-          mkdir -p artifacts
-          echo "{ \"version\": \"${{ env.new_version }}\", \"commit\": \"$(git rev-parse HEAD)\", \"deployed_by\": \"github-actions[bot]\", \"deployed_at\": \"$(date -u +'%Y-%m-%dT%H:%M:%SZ')\" }" > artifacts/deployment-metadata.json
+          echo "{ \"version\": \"${{ github.event.inputs.tag_name }}\", \"commit\": \"$(git rev-parse HEAD)\", \"deployed_by\": \"github-actions[bot]\", \"deployed_at\": \"$(date -u +'%Y-%m-%dT%H:%M:%SZ')\" }" > deployment-metadata.json
 
       # Step 7: Publish GitHub Release
       - name: Publish GitHub Release
@@ -160,37 +158,36 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       # Step 8: Push Deployment Metadata to Logs Branch
-      - name: Push Deployment Metadata to Logs Branch
+      # Step 8: Push Deployment Metadata to Logs Branch
+      - name: Generate and Push Deployment Metadata
         if: env.skip_deployment == 'false'
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
 
-          # Remove any uncommitted or conflicting files to ensure a clean state
-          git reset --hard
-          git clean -fdx
-
-          # Ensure the branch exists locally
-          git fetch origin deployment-logs:deployment-logs || true
-          if ! git rev-parse --verify deployment-logs >/dev/null 2>&1; then
-            git checkout -b deployment-logs
-          else
-            git checkout deployment-logs
+          # Check if the metadata file exists and temporarily move it
+          if [ -f deployment-metadata.json ]; then
+            mv deployment-metadata.json deployment-metadata.json.bak
           fi
 
-          # Copy deployment metadata to the root directory
-          mkdir -p artifacts
-          if [ -f artifacts/deployment-metadata.json ]; then
-            cp artifacts/deployment-metadata.json .
-            git add deployment-metadata.json
-            git commit -m "Track deployment of version ${{ env.new_version }} to production" || echo "No changes to commit"
-          else
-            echo "Warning: Deployment metadata file not found. Skipping commit."
-            exit 0
+          # Fetch the remote branch or create it locally
+          git fetch origin deployment-logs || echo "Branch does not exist remotely"
+          git checkout deployment-logs || git checkout -b deployment-logs
+
+          # Restore the metadata file after switching branches
+          if [ -f deployment-metadata.json.bak ]; then
+            mv deployment-metadata.json.bak deployment-metadata.json
           fi
 
-          # Force push the branch
-          git push origin deployment-logs --force
+          # Stage only the deployment metadata file
+          git reset -- .
+          git add deployment-metadata.json
+
+          # Commit the changes
+          git commit -m "Track deployment of version ${{ github.event.inputs.tag_name }}" || echo "No changes to commit"
+
+          # Push changes to the remote branch
+          git push origin deployment-logs --force-with-lease
 
       # Step 9: Output New Version
       - name: Output New Version
