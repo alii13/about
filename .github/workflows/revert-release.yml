@@ -6,9 +6,7 @@ on:
       tag_name:
         description: 'Tag version to deploy (e.g., v1.0.1, v1.0.2)'
         required: true
-permissions:
-    workflows: write
-    
+
 jobs:
   revert-and-deploy:
     runs-on: ubuntu-latest
@@ -52,31 +50,22 @@ jobs:
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
 
-          # Remove any uncommitted or conflicting files to ensure a clean state
-          git reset --hard
-          git clean -fdx
-
-          # Ensure the branch exists locally
-          git fetch origin deployment-logs:deployment-logs || true
-          if ! git rev-parse --verify deployment-logs >/dev/null 2>&1; then
-            git checkout -b deployment-logs
-          else
+          # Fetch the remote branch or create it locally
+          git fetch origin deployment-logs || echo "Branch does not exist remotely"
+          if git show-ref --verify --quiet refs/heads/deployment-logs; then
             git checkout deployment-logs
-          fi
-
-          # Copy deployment metadata to the root directory
-          mkdir -p artifacts
-          if [ -f artifacts/deployment-metadata.json ]; then
-            cp artifacts/deployment-metadata.json .
-            git add deployment-metadata.json
-            git commit -m "Track deployment of version ${{ env.new_version }} to production" || echo "No changes to commit"
           else
-            echo "Warning: Deployment metadata file not found. Skipping commit."
-            exit 0
+            git checkout -b deployment-logs
           fi
 
-          # Force push the branch
-          git push origin deployment-logs --force
+          # Stage the deployment metadata file created in Step 5
+          git add artifacts/deployment-metadata.json
+
+          # Commit the changes
+          git commit -m "Track deployment of version ${{ github.event.inputs.tag_name }}" || echo "No changes to commit"
+
+          # Push changes to the remote branch
+          git push origin deployment-logs --force-with-lease
 
 
 
