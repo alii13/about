@@ -39,8 +39,7 @@ jobs:
       # Step 5: Write Deployment Metadata
       - name: Write Deployment Metadata
         run: |
-          mkdir -p artifacts
-          echo "{ \"version\": \"${{ github.event.inputs.tag_name }}\", \"commit\": \"$(git rev-parse HEAD)\", \"deployed_by\": \"github-actions[bot]\", \"deployed_at\": \"$(date -u +'%Y-%m-%dT%H:%M:%SZ')\" }" > artifacts/deployment-metadata.json
+          echo "{ \"version\": \"${{ github.event.inputs.tag_name }}\", \"commit\": \"$(git rev-parse HEAD)\", \"deployed_by\": \"github-actions[bot]\", \"deployed_at\": \"$(date -u +'%Y-%m-%dT%H:%M:%SZ')\" }" > deployment-metadata.json
 
 
       # Step 8: Push Deployment Metadata to Logs Branch
@@ -50,8 +49,8 @@ jobs:
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
 
           # Check if the metadata file exists and temporarily move it
-          if [ -f artifacts/deployment-metadata.json ]; then
-            mv artifacts/deployment-metadata.json artifacts/deployment-metadata.json.bak
+          if [ -f deployment-metadata.json ]; then
+            mv deployment-metadata.json deployment-metadata.json.bak
           fi
 
           # Fetch the remote branch or create it locally
@@ -59,13 +58,13 @@ jobs:
           git checkout deployment-logs || git checkout -b deployment-logs
 
           # Restore the metadata file after switching branches
-          if [ -f artifacts/deployment-metadata.json.bak ]; then
-            mv artifacts/deployment-metadata.json.bak artifacts/deployment-metadata.json
+          if [ -f deployment-metadata.json.bak ]; then
+            mv deployment-metadata.json.bak deployment-metadata.json
           fi
 
           # Stage only the deployment metadata file
           git reset -- .
-          git add artifacts/deployment-metadata.json
+          git add deployment-metadata.json
 
           # Commit the changes
           git commit -m "Track deployment of version ${{ github.event.inputs.tag_name }}" || echo "No changes to commit"
@@ -80,7 +79,7 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: deployment-metadata
-          path: artifacts/deployment-metadata.json
+          path: deployment-metadata.json
 
       # Step 8: Log Deployed Version
       - name: Log Deployed Version
