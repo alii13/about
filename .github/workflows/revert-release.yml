@@ -48,11 +48,11 @@ jobs:
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
 
-          # Fetch the remote branch and create or switch locally
+          # Fetch the remote branch or create a new one locally
           git fetch origin deployment-logs || echo "Branch does not exist remotely"
           git checkout deployment-logs || git checkout -b deployment-logs
 
-          # Generate deployment metadata
+          # Generate the deployment metadata file
           mkdir -p artifacts
           echo "{ \
             \"version\": \"${{ env.new_version }}\", \
@@ -61,12 +61,15 @@ jobs:
             \"deployed_at\": \"$(date -u +'%Y-%m-%dT%H:%M:%SZ')\" \
           }" > artifacts/deployment-metadata.json
 
-          # Add and commit the metadata
+          # Stage only the deployment metadata file
           git add artifacts/deployment-metadata.json
+
+          # Commit the changes
           git commit -m "Track deployment of version ${{ env.new_version }}" || echo "No changes to commit"
 
-          # Push changes to remote
+          # Push the changes to the remote branch
           git push origin deployment-logs --force-with-lease
+
 
 
       # Step 7: Upload Deployment Metadata as Artifact
