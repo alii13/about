@@ -184,7 +184,7 @@ jobs:
           git add deployment-metadata.json
 
           # Commit the changes
-          git commit -m "Track deployment of version ${{ github.event.inputs.tag_name }}" || echo "No changes to commit"
+          git commit -m "Track deployment of version ${{ env.new_version }}" || echo "No changes to commit"
 
           # Push changes to the remote branch
           git push origin deployment-logs --force-with-lease
