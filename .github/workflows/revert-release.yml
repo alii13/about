@@ -45,7 +45,6 @@ jobs:
 
       # Step 8: Push Deployment Metadata to Logs Branch
       - name: Push Deployment Metadata to Logs Branch
-        if: env.skip_deployment == 'false'
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
