@@ -43,29 +43,31 @@ jobs:
           echo "{ \"version\": \"${{ github.event.inputs.tag_name }}\", \"commit\": \"$(git rev-parse HEAD)\", \"deployed_by\": \"github-actions[bot]\", \"deployed_at\": \"$(date -u +'%Y-%m-%dT%H:%M:%SZ')\" }" > artifacts/deployment-metadata.json
 
       # Step 6: Push Deployment Metadata to Git
-      - name: Push Deployment Metadata to Logs Branch
-        run: |
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+    - name: Generate and Push Deployment Metadata
+      run: |
+        git config --global user.name "github-actions[bot]"
+        git config --global user.email "github-actions[bot]@users.noreply.github.com"
 
-          # Handle untracked file conflict
-          git stash --include-untracked || echo "Nothing to stash"
+        # Fetch the remote branch and create or switch locally
+        git fetch origin deployment-logs || echo "Branch does not exist remotely"
+        git checkout deployment-logs || git checkout -b deployment-logs
 
-          # Fetch and switch to the deployment-logs branch
-          git fetch origin deployment-logs || echo "Branch does not exist remotely"
-          git checkout deployment-logs || git checkout -b deployment-logs
+        # Generate deployment metadata
+        mkdir -p artifacts
+        echo "{ \
+          \"version\": \"${{ env.new_version }}\", \
+          \"commit\": \"$(git rev-parse HEAD)\", \
+          \"deployed_by\": \"github-actions[bot]\", \
+          \"deployed_at\": \"$(date -u +'%Y-%m-%dT%H:%M:%SZ')\" \
+        }" > artifacts/deployment-metadata.json
 
-          # Restore stashed changes
-          git stash pop || echo "No stashed changes to apply"
+        # Add and commit the metadata
+        git add artifacts/deployment-metadata.json
+        git commit -m "Track deployment of version ${{ env.new_version }}" || echo "No changes to commit"
 
-          # Add only the deployment metadata file
-          git add artifacts/deployment-metadata.json
+        # Push changes to remote
+        git push origin deployment-logs --force-with-lease
 
-          # Commit the changes
-          git commit -m "Track deployment of version ${{ github.event.inputs.tag_name }}" || echo "No changes to commit"
-
-          # Push changes, resolving any non-fast-forward issues
-          git push origin deployment-logs --force-with-lease
 
       # Step 7: Upload Deployment Metadata as Artifact
       - name: Upload Deployment Metadata as Artifact
