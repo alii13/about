@@ -58,7 +58,7 @@ jobs:
                     
                     if [ -z "$SYNC_PR_EXISTS" ]; then
                       echo "Creating sync PR from master to $PR_BRANCH..."
-                      gh pr create --base $PR_BRANCH --head master --title "Sync 'master' into PR #$PR_ID" --body "Automated PR sync from 'master' to '$PR_BRANCH'"
+                      gh pr create --base $PR_BRANCH --head master --title "Sync 'master' into $PR_BRANCH" --body "Automated PR sync from 'master' to '$PR_BRANCH'"
                       SYNC_PR_URL=$(gh pr list --base $PR_BRANCH --head master --state open --json url --jq '.[0].url')
                     else
                       echo "Sync PR from master to $PR_BRANCH already exists."
@@ -128,13 +128,13 @@ jobs:
               if [ -z "$ISSUE_NUMBER" ]; then
                 # Create a new issue to notify the author
                 echo "Creating a notification issue for $BRANCH..."
-                gh issue create --title "$BRANCH Sync Notification" \
-                                --body "A sync PR [here]($SYNC_PR_URL) was created to keep **$BRANCH** in sync with 'master'.\n\n@${AUTHOR_USERNAME}, please review and merge this PR to ensure your branch is up-to-date." \
+                gh issue create --title "$BRANCH sync notification" \
+                                --body "A sync PR [here]($SYNC_PR_URL) was created to keep **$BRANCH** in sync with 'master'.<br> <br>@${AUTHOR_USERNAME}, please review and merge this PR to ensure your branch is up-to-date." \
                                 --label "sync-notification"
               else
                 # Add a comment to the existing issue
                 echo "Updating existing notification issue #$ISSUE_NUMBER for $BRANCH..."
-                gh issue comment $ISSUE_NUMBER --body "A new sync PR [here]($SYNC_PR_URL) has been created to keep **$BRANCH** in sync with 'master'."
+                gh issue comment $ISSUE_NUMBER --body "A new sync PR [here]($SYNC_PR_URL) has been created to keep **$BRANCH** in sync with 'master'. <br> <br>@${AUTHOR_USERNAME}, please review and merge this PR to ensure your branch is up-to-date."
               fi
             else
               echo "Branch $BRANCH is already up to date with master."
