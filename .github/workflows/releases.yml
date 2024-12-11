@@ -1,0 +1,201 @@
+name: Increment, Publish, and Deploy
+
+on:
+  # Manual trigger
+  workflow_dispatch:
+    inputs:
+      version_type:
+        description: 'Select version type (major, minor, patch)'
+        required: false
+        type: choice
+        options:
+          - major
+          - minor
+          - patch
+        default: minor
+
+  # Scheduled triggers
+  schedule:
+    - cron: '30 7 * * 1-5' # 1 PM IST (7:30 AM UTC) every weekday
+    - cron: '30 14 * * 1-5' # 8 PM IST (2:30 PM UTC) every weekday
+
+jobs:
+  increment-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      # Step 1: Checkout Repository
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      # Step 2: Fetch Latest Tags
+      - name: Fetch Latest Tags
+        run: |
+          # Remove all local tags to avoid conflicts
+          git tag -l | xargs -r git tag -d
+
+          # Fetch and synchronize all tags
+          git fetch --tags --force
+
+          # Identify the latest tag
+          latest_tag=$(git tag --list "v[0-9]*.[0-9]*.[0-9]*" | sort -V | tail -n 1)
+
+          # Fallback if no tags exist
+          if [ -z "$latest_tag" ]; then
+            latest_tag="v0.0.0"
+          fi
+
+          echo "Latest tag: $latest_tag"
+          echo "latest_tag=$latest_tag" >> $GITHUB_ENV
+
+      # Step 3: Check for New Commits
+      - name: Check for New Commits
+        id: check_commits
+        run: |
+          # Fetch the latest commit and tag commit
+          latest_commit=$(git rev-parse HEAD)
+
+          if [ -z "${{ env.latest_tag }}" ]; then
+            echo "No previous tags found. Assuming new deployment required."
+            echo "skip_deployment=false" >> $GITHUB_ENV
+            exit 0
+          fi
+
+          tag_commit=$(git rev-list -n 1 ${{ env.latest_tag }})
+
+          # Compare the latest commit with the tagged commit
+          if [ "$latest_commit" = "$tag_commit" ]; then
+            echo "No new commits since the last tag (${{ env.latest_tag }}). Exiting workflow successfully."
+            echo "skip_deployment=true" >> $GITHUB_ENV
+          else
+            echo "New commits detected. Proceeding with deployment."
+            echo "skip_deployment=false" >> $GITHUB_ENV
+          fi
+
+      # Step 4: Increment Version
+      - name: Increment Version
+        if: env.skip_deployment == 'false'
+        run: |
+          # Fetch all tags
+          git fetch --tags --force
+          
+          # Get the latest valid tag in vX.Y.Z format
+          latest_tag=$(git tag --list "v[0-9]*.[0-9]*.[0-9]*" | sort -V | tail -n 1)
+          if [ -z "$latest_tag" ]; then
+            latest_tag="v0.0.0"
+          fi
+          echo "Latest valid tag: $latest_tag"
+
+          # Strip the 'v' prefix for parsing
+          version="${latest_tag#v}"
+
+          # Parse the major, minor, and patch components
+          IFS='.' read -r major minor patch <<< "$version"
+
+          # Ensure default values for missing components
+          major=${major:-0}
+          minor=${minor:-0}
+          patch=${patch:-0}
+
+          echo "Parsed version: major=$major, minor=$minor, patch=$patch"
+
+          # Increment the version based on input
+          if [ "${{ github.event.inputs.version_type || env.version_type }}" == "major" ]; then
+            major=$((major + 1))
+            minor=0
+            patch=0
+          elif [ "${{ github.event.inputs.version_type || env.version_type }}" == "minor" ]; then
+            minor=$((minor + 1))
+            patch=0
+          else
+            patch=$((patch + 1))
+          fi
+
+          # Construct the new tag
+          new_version="v$major.$minor.$patch"
+          echo "New version: $new_version"
+
+          # Save the new version for later steps
+          echo "new_version=$new_version" >> $GITHUB_ENV
+
+      # Step 5: Create and Push New Tag
+      - name: Create and Push New Tag
+        if: env.skip_deployment == 'false'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Use the new version from the previous step
+          new_version="${{ env.new_version }}"
+          echo "Creating and pushing new tag: $new_version"
+
+          # Check if the tag already exists
+          if git rev-parse "$new_version" >/dev/null 2>&1; then
+            echo "Tag $new_version already exists. Skipping tag creation."
+            exit 0
+          fi
+
+          # Create and push the new tag
+          git tag $new_version
+          git push origin $new_version
+          echo "Published new tag: $new_version"
+
+      # Step 6: Generate Deployment Metadata
+      - name: Write Deployment Metadata
+        run: |
+          echo "{ \
+            \"commit\": \"$(git rev-parse HEAD)\", \
+            \"deployed_by\": \"github-actions[bot]\", \
+            \"deployed_at\": \"$(date -u +'%Y-%m-%dT%H:%M:%SZ')\", \
+            \"tag\": \"${{ env.new_version }}\", \
+            \"deployment_id\": \"$(date +'%Y%m%d-%H%M%S')\" \
+          }" > deployment-metadata.json
+
+      # Step 7: Publish GitHub Release
+      - name: Publish GitHub Release
+        if: env.skip_deployment == 'false'
+        uses: actions/create-release@v1
+        with:
+          tag_name: ${{ env.new_version }}
+          release_name: "Release ${{ env.new_version }}"
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # Step 8: Push Deployment Metadata to Logs Branch
+      # Step 8: Push Deployment Metadata to Logs Branch
+      - name: Generate and Push Deployment Metadata
+        if: env.skip_deployment == 'false'
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Check if the metadata file exists and temporarily move it
+          if [ -f deployment-metadata.json ]; then
+            mv deployment-metadata.json deployment-metadata.json.bak
+          fi
+
+          # Fetch the remote branch or create it locally
+          git fetch origin deployment-logs || echo "Branch does not exist remotely"
+          git checkout deployment-logs || git checkout -b deployment-logs
+
+          # Restore the metadata file after switching branches
+          if [ -f deployment-metadata.json.bak ]; then
+            mv deployment-metadata.json.bak deployment-metadata.json
+          fi
+
+          # Stage only the deployment metadata file
+          git reset -- .
+          git add deployment-metadata.json
+
+          # Commit the changes
+          git commit -m "Track deployment of version ${{ env.new_version }}" || echo "No changes to commit"
+
+          # Push changes to the remote branch
+          git push origin deployment-logs --force-with-lease
+
+      # Step 9: Output New Version
+      - name: Output New Version
+        if: env.skip_deployment == 'false'
+        run: echo "Successfully deployed version ${{ env.new_version }} to the CDN."
