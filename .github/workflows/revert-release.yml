@@ -42,33 +42,39 @@ jobs:
           mkdir -p artifacts
           echo "{ \"version\": \"${{ github.event.inputs.tag_name }}\", \"commit\": \"$(git rev-parse HEAD)\", \"deployed_by\": \"github-actions[bot]\", \"deployed_at\": \"$(date -u +'%Y-%m-%dT%H:%M:%SZ')\" }" > artifacts/deployment-metadata.json
 
-      # Step 6: Push Deployment Metadata to Git
-      - name: Generate and Push Deployment Metadata
+
+      # Step 8: Push Deployment Metadata to Logs Branch
+      - name: Push Deployment Metadata to Logs Branch
+        if: env.skip_deployment == 'false'
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
 
-          # Fetch the remote branch or create a new one locally
-          git fetch origin deployment-logs || echo "Branch does not exist remotely"
-          git checkout deployment-logs || git checkout -b deployment-logs
+          # Remove any uncommitted or conflicting files to ensure a clean state
+          git reset --hard
+          git clean -fdx
 
-          # Generate the deployment metadata file
+          # Ensure the branch exists locally
+          git fetch origin deployment-logs:deployment-logs || true
+          if ! git rev-parse --verify deployment-logs >/dev/null 2>&1; then
+            git checkout -b deployment-logs
+          else
+            git checkout deployment-logs
+          fi
+
+          # Copy deployment metadata to the root directory
           mkdir -p artifacts
-          echo "{ \
-            \"version\": \"${{ env.new_version }}\", \
-            \"commit\": \"$(git rev-parse HEAD)\", \
-            \"deployed_by\": \"github-actions[bot]\", \
-            \"deployed_at\": \"$(date -u +'%Y-%m-%dT%H:%M:%SZ')\" \
-          }" > artifacts/deployment-metadata.json
+          if [ -f artifacts/deployment-metadata.json ]; then
+            cp artifacts/deployment-metadata.json .
+            git add deployment-metadata.json
+            git commit -m "Track deployment of version ${{ env.new_version }} to production" || echo "No changes to commit"
+          else
+            echo "Warning: Deployment metadata file not found. Skipping commit."
+            exit 0
+          fi
 
-          # Stage only the deployment metadata file
-          git add artifacts/deployment-metadata.json
-
-          # Commit the changes
-          git commit -m "Track deployment of version ${{ env.new_version }}" || echo "No changes to commit"
-
-          # Push the changes to the remote branch
-          git push origin deployment-logs --force-with-lease
+          # Force push the branch
+          git push origin deployment-logs --force
 
 
 
