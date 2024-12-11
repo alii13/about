@@ -40,7 +40,7 @@ jobs:
           git fetch --tags --force
 
           # Identify the latest tag
-          latest_tag=$(git tag --list | sort -V | tail -n 1)
+          latest_tag=$(git tag --list "v[0-9]*.[0-9]*.[0-9]*" | sort -V | tail -n 1)
 
           # Fallback if no tags exist
           if [ -z "$latest_tag" ]; then
@@ -56,28 +56,25 @@ jobs:
         run: |
           # Fetch the latest commit and tag commit
           latest_commit=$(git rev-parse HEAD)
-          tag_commit=$(git rev-list -n 1 $LATEST_TAG)
+
+          if [ -z "${{ env.latest_tag }}" ]; then
+            echo "No previous tags found. Assuming new deployment required."
+            echo "skip_deployment=false" >> $GITHUB_ENV
+            exit 0
+          fi
+
+          tag_commit=$(git rev-list -n 1 ${{ env.latest_tag }})
 
           # Compare the latest commit with the tagged commit
           if [ "$latest_commit" = "$tag_commit" ]; then
-            echo "No new commits since the last tag ($LATEST_TAG). Exiting workflow successfully."
+            echo "No new commits since the last tag (${{ env.latest_tag }}). Exiting workflow successfully."
             echo "skip_deployment=true" >> $GITHUB_ENV
           else
             echo "New commits detected. Proceeding with deployment."
             echo "skip_deployment=false" >> $GITHUB_ENV
           fi
-        env:
-          LATEST_TAG: ${{ env.latest_tag }}
 
-      # Step 4: Detect Merges and Determine Version Bump
-      - name: Detect Merges and Determine Version Bump
-        id: detect_merge
-        if: env.skip_deployment == 'false'
-        run: |
-          chmod +x .github/scripts/detect_version_bump.sh
-          version_type=$(.github/scripts/detect_version_bump.sh ${{ env.latest_tag }})
-          echo "version_type=$version_type" >> $GITHUB_ENV
-
+      # Step 4: Increment Version
       - name: Increment Version
         if: env.skip_deployment == 'false'
         run: |
@@ -123,8 +120,7 @@ jobs:
           # Save the new version for later steps
           echo "new_version=$new_version" >> $GITHUB_ENV
 
-
-          
+      # Step 5: Create and Push New Tag
       - name: Create and Push New Tag
         if: env.skip_deployment == 'false'
         env:
@@ -145,15 +141,14 @@ jobs:
           git push origin $new_version
           echo "Published new tag: $new_version"
 
-      # Step 5: Generate Deployment Metadata
+      # Step 6: Generate Deployment Metadata
       - name: Generate Deployment Metadata
         if: env.skip_deployment == 'false'
         run: |
           mkdir -p artifacts
           echo "{ \"version\": \"${{ env.new_version }}\", \"commit\": \"$(git rev-parse HEAD)\", \"deployed_by\": \"github-actions[bot]\", \"deployed_at\": \"$(date -u +'%Y-%m-%dT%H:%M:%SZ')\" }" > artifacts/deployment-metadata.json
 
-
-      # Step: Publish GitHub Release
+      # Step 7: Publish GitHub Release
       - name: Publish GitHub Release
         if: env.skip_deployment == 'false'
         uses: actions/create-release@v1
@@ -164,14 +159,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-     # Step 5: Generate Deployment Metadata
-      - name: Generate Deployment Metadata
-        if: env.skip_deployment == 'false'
-        run: |
-          mkdir -p artifacts
-          echo "{ \"version\": \"${{ env.new_version }}\", \"commit\": \"$(git rev-parse HEAD)\", \"deployed_by\": \"github-actions[bot]\", \"deployed_at\": \"$(date -u +'%Y-%m-%dT%H:%M:%SZ')\" }" > artifacts/deployment-metadata.json
-
-      # Step 6: Push Deployment Metadata to Logs Branch
+      # Step 8: Push Deployment Metadata to Logs Branch
       - name: Push Deployment Metadata to Logs Branch
         if: env.skip_deployment == 'false'
         run: |
@@ -194,43 +182,17 @@ jobs:
           mkdir -p artifacts
           if [ -f artifacts/deployment-metadata.json ]; then
             cp artifacts/deployment-metadata.json .
+            git add deployment-metadata.json
+            git commit -m "Track deployment of version ${{ env.new_version }} to production" || echo "No changes to commit"
           else
             echo "Warning: Deployment metadata file not found. Skipping commit."
             exit 0
           fi
 
-          # Add changes
-          git add deployment-metadata.json
-          git commit -m "Track deployment of version ${{ env.new_version }} to production" || echo "No changes to commit"
-
           # Force push the branch
           git push origin deployment-logs --force
 
-
-      # Step 10: Upload Deployment Metadata as Artifact
-      - name: Upload Deployment Metadata as Artifact
-        if: env.skip_deployment == 'false'
-        uses: actions/upload-artifact@v3
-        with:
-          name: deployment-metadata
-          path: artifacts/deployment-metadata.json
-
-      # Step 11: Build the Project
-      - name: Install Dependencies and Build
-        if: env.skip_deployment == 'false'
-        run: |
-          npm install
-          npm run build
-        env:
-          NODE_ENV: production
-
-      # Step 12: Deploy to CDN
-      - name: Deploy to CDN
-        if: env.skip_deployment == 'false'
-        run: |
-          echo "Deployed version ${{ env.new_version }} to the CDN."
-
-      # Step 13: Output New Version
+      # Step 9: Output New Version
       - name: Output New Version
         if: env.skip_deployment == 'false'
         run: echo "Successfully deployed version ${{ env.new_version }} to the CDN."
