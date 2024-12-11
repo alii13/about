@@ -42,8 +42,10 @@ jobs:
           mkdir -p artifacts
           echo "{ \"version\": \"${{ github.event.inputs.tag_name }}\", \"commit\": \"$(git rev-parse HEAD)\", \"deployed_by\": \"github-actions[bot]\", \"deployed_at\": \"$(date -u +'%Y-%m-%dT%H:%M:%SZ')\" }" > artifacts/deployment-metadata.json
 
-      # Step 6: Push Deployment Metadata to Git
-      - name: Generate and Push Deployment Metadata
+
+      # Step 8: Push Deployment Metadata to Logs Branch
+      - name: Push Deployment Metadata to Logs Branch
+        if: env.skip_deployment == 'false'
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
