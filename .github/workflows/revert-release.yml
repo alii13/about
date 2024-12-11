@@ -47,17 +47,16 @@ jobs:
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          git fetch origin deployment-logs || echo "Branch deployment-logs does not exist on remote"
-          mv artifacts/deployment-metadata.json artifacts/deployment-metadata.json.tmp || echo "No existing metadata file to move"
+          git fetch origin deployment-logs || echo "Branch does not exist remotely"
           if git show-ref --verify --quiet refs/heads/deployment-logs; then
             git checkout deployment-logs
           else
             git checkout -b deployment-logs
           fi
-          mv artifacts/deployment-metadata.json.tmp artifacts/deployment-metadata.json || echo "No file to restore"
+          git pull origin deployment-logs --rebase || echo "Nothing to rebase"
           git add artifacts/deployment-metadata.json
           git commit -m "Track deployment of version ${{ github.event.inputs.tag_name }}" || echo "No changes to commit"
-          git push origin deployment-logs
+          git push origin deployment-logs --force-with-lease
 
       # Step 7: Upload Deployment Metadata as Artifact
       - name: Upload Deployment Metadata as Artifact
