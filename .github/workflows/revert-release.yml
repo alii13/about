@@ -59,7 +59,7 @@ jobs:
 
           # Stage the deployment metadata file created in Step 5
           git add artifacts/deployment-metadata.json
-
+          git status
           # Commit the changes
           git commit -m "Track deployment of version ${{ github.event.inputs.tag_name }}" || echo "No changes to commit"
 
