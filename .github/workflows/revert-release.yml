@@ -6,9 +6,7 @@ on:
       tag_name:
         description: 'Tag version to deploy (e.g., v1.0.1, v1.0.2)'
         required: true
-permissions:
-    workflows: write
-    
+
 jobs:
   revert-and-deploy:
     runs-on: ubuntu-latest
@@ -50,26 +48,21 @@ jobs:
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
 
-          # Fetch the remote branch or create a new one locally
+          # Fetch the remote branch or create it locally
           git fetch origin deployment-logs || echo "Branch does not exist remotely"
-          git checkout deployment-logs || git checkout -b deployment-logs
+          if git show-ref --verify --quiet refs/heads/deployment-logs; then
+            git checkout deployment-logs
+          else
+            git checkout -b deployment-logs
+          fi
 
-          # Generate the deployment metadata file
-          mkdir -p artifacts
-          echo "{ \
-            \"version\": \"${{ env.new_version }}\", \
-            \"commit\": \"$(git rev-parse HEAD)\", \
-            \"deployed_by\": \"github-actions[bot]\", \
-            \"deployed_at\": \"$(date -u +'%Y-%m-%dT%H:%M:%SZ')\" \
-          }" > artifacts/deployment-metadata.json
-
-          # Stage only the deployment metadata file
+          # Stage the deployment metadata file created in Step 5
           git add artifacts/deployment-metadata.json
 
           # Commit the changes
-          git commit -m "Track deployment of version ${{ env.new_version }}" || echo "No changes to commit"
+          git commit -m "Track deployment of version ${{ github.event.inputs.tag_name }}" || echo "No changes to commit"
 
-          # Push the changes to the remote branch
+          # Push changes to the remote branch
           git push origin deployment-logs --force-with-lease
 
 
