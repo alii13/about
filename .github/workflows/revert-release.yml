@@ -6,11 +6,12 @@ on:
       tag_name:
         description: 'Tag version to deploy (e.g., v1.0.1, v1.0.2)'
         required: true
-
+permissions:
+    workflows: write
+    
 jobs:
   revert-and-deploy:
     runs-on: ubuntu-latest
-    workflows: write
 
     steps:
       # Step 1: Checkout Repository
