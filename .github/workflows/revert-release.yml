@@ -47,15 +47,24 @@ jobs:
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Handle untracked file conflict
+          git stash --include-untracked || echo "Nothing to stash"
+
+          # Fetch and switch to the deployment-logs branch
           git fetch origin deployment-logs || echo "Branch does not exist remotely"
-          if git show-ref --verify --quiet refs/heads/deployment-logs; then
-            git checkout deployment-logs
-          else
-            git checkout -b deployment-logs
-          fi
-          git pull origin deployment-logs --rebase || echo "Nothing to rebase"
+          git checkout deployment-logs || git checkout -b deployment-logs
+
+          # Restore stashed changes
+          git stash pop || echo "No stashed changes to apply"
+
+          # Add only the deployment metadata file
           git add artifacts/deployment-metadata.json
+
+          # Commit the changes
           git commit -m "Track deployment of version ${{ github.event.inputs.tag_name }}" || echo "No changes to commit"
+
+          # Push changes, resolving any non-fast-forward issues
           git push origin deployment-logs --force-with-lease
 
       # Step 7: Upload Deployment Metadata as Artifact
