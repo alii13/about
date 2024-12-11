@@ -64,6 +64,7 @@ jobs:
           fi
 
           # Stage only the deployment metadata file
+          git reset -- .
           git add artifacts/deployment-metadata.json
 
           # Commit the changes
