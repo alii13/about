@@ -19,13 +19,17 @@ jobs:
       # Step 2: Fetch Tags and Checkout Specific Tag
       - name: Fetch and Checkout Specific Tag
         run: |
-          git fetch --tags
+          git fetch --tags --force
+          if ! git rev-parse "${{ github.event.inputs.tag_name }}" >/dev/null 2>&1; then
+            echo "Error: Tag ${{ github.event.inputs.tag_name }} does not exist in the repository."
+            exit 1
+          fi
           git checkout ${{ github.event.inputs.tag_name }}
 
       # Step 3: Validate Checked-Out Tag
       - name: Validate Checked-Out Tag
         run: |
-          checked_out_tag=$(git describe --tags)
+          checked_out_tag=$(git describe --tags --exact-match 2>/dev/null || git rev-parse HEAD)
           if [ "$checked_out_tag" != "${{ github.event.inputs.tag_name }}" ]; then
             echo "Error: Checked-out tag ($checked_out_tag) does not match the input tag (${{ github.event.inputs.tag_name }})."
             exit 1
