@@ -47,10 +47,12 @@ jobs:
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          git stash --include-untracked || echo "Nothing to stash"
           git fetch origin deployment-logs:deployment-logs || git branch deployment-logs
           git checkout deployment-logs || git checkout -b deployment-logs
-          git stash pop || echo "No stashed changes to apply"
+          if [ -f "artifacts/deployment-metadata.json" ]; then
+            mv artifacts/deployment-metadata.json artifacts/deployment-metadata.json.bak
+          fi
+          cp artifacts/deployment-metadata.json.bak artifacts/deployment-metadata.json || echo "No backup to restore"
           git add artifacts/deployment-metadata.json
           git commit -m "Track deployment of version ${{ github.event.inputs.tag_name }}" || echo "No changes to commit"
           git push origin deployment-logs
