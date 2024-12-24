@@ -1,201 +1,471 @@
-name: Increment, Publish, and Deploy
-
+name: Production Release Workflow
 on:
-  # Manual trigger
-  workflow_dispatch:
-    inputs:
-      version_type:
-        description: 'Select version type (major, minor, patch)'
-        required: false
-        type: choice
-        options:
-          - major
-          - minor
-          - patch
-        default: minor
+    # Manual trigger
+    workflow_dispatch:
+        inputs:
+            version_type:
+                description: 'Select version type (major, minor, patch)'
+                required: false
+                type: choice
+                options:
+                    - major
+                    - minor
+                    - patch
+                default: minor
 
-  # Scheduled triggers
-  schedule:
-    - cron: '30 7 * * 1-5' # 1 PM IST (7:30 AM UTC) every weekday
-    - cron: '30 14 * * 1-5' # 8 PM IST (2:30 PM UTC) every weekday
+    # Scheduled triggers
+    schedule:
+        - cron: '30 7 * * 1-5' # 1 PM IST (7:30 AM UTC) every weekday
+        - cron: '30 14 * * 1-5' # 8 PM IST (2:30 PM UTC) every weekday
 
 jobs:
-  increment-and-deploy:
-    runs-on: ubuntu-latest
+    #steps:
+    deploy:
+        name: Deployment
+        runs-on: ubuntu-latest
+        # needs: bump-version
+        outputs:
+            skip_deployment: ${{ steps.check_commits.outputs.skip_deployment }}
+        steps:
+            - name: Get branch name
+              run: echo "branch=${GITHUB_REF#refs/heads/}" >> $GITHUB_OUTPUT
+              id: get_branch
 
-    steps:
-      # Step 1: Checkout Repository
-      - name: Checkout Repository
-        uses: actions/checkout@v3
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+            - name: Get previous tag from charts repo
+              id: get_channel
+              run: |
+                  repo_branch=${{ steps.get_branch.outputs.branch }}
+                  if [[ "$repo_branch" == "main" ]]; then
+                    channel="main"
+                  elif [[ "$repo_branch" == "beta" ]]; then
+                    channel="beta"
+                  elif [[ "$repo_branch" == "staging" ]]; then
+                    channel="staging"
+                  elif [[ "$repo_branch" == "development" ]]; then
+                    channel="development"
+                  else 
+                    echo "Build not configured for current branch"
+                    exit 1
+                  fi
+                  echo "channel=$channel" >> $GITHUB_OUTPUT
+              shell: bash
 
-      # Step 2: Fetch Latest Tags
-      - name: Fetch Latest Tags
-        run: |
-          # Remove all local tags to avoid conflicts
-          git tag -l | xargs -r git tag -d
+            - name: Get segment analytics key based on branch name
+              id: get_segment_analytics_key
+              run: |
+                  repo_branch=${{ steps.get_branch.outputs.branch }}
+                  if [[ "$repo_branch" == "main" ]]; then
+                    analytics_key=${{ secrets.SEGMENT_PROD_KEY }}
+                  else 
+                    analytics_key=${{ secrets.SEGMENT_DEV_KEY }}
+                  fi
+                  echo "analytics_key=$analytics_key" >> $GITHUB_OUTPUT
+              shell: bash
 
-          # Fetch and synchronize all tags
-          git fetch --tags --force
+            - name: Get launch darkly key based on branch name
+              id: get_launch_darkly_key
+              run: |
+                  repo_branch=${{ steps.get_branch.outputs.branch }}
+                  if [[ "$repo_branch" == "main" ]]; then
+                    LD_key=${{ secrets.LD_PROD_KEY }}
+                  else 
+                    LD_key=${{ secrets.LD_DEV_KEY }}
+                  fi
+                  echo "LD_key=$LD_key" >> $GITHUB_OUTPUT
+              shell: bash
 
-          # Identify the latest tag
-          latest_tag=$(git tag --list "v[0-9]*.[0-9]*.[0-9]*" | sort -V | tail -n 1)
+            - name: Get grafana faro key based on branch name
+              id: get_grafana_faro_key
+              run: |
+                  repo_branch=${{ steps.get_branch.outputs.branch }}
+                  if [[ "$repo_branch" == "main" ]]; then
+                    FARO_key=${{ secrets.GRAFANA_FARO_PROD_KEY }}
+                  else 
+                    FARO_key=${{ secrets.GRAFANA_FARO_DEV_KEY }}
+                  fi
+                  echo "FARO_key=$FARO_key" >> $GITHUB_OUTPUT
+              shell: bash
 
-          # Fallback if no tags exist
-          if [ -z "$latest_tag" ]; then
-            latest_tag="v0.0.0"
-          fi
+            - name: Check out branch
+              uses: actions/checkout@v3
+              with:
+                  token: ${{ secrets.GITHUB_TOKEN }}
+                  fetch-depth: 0
 
-          echo "Latest tag: $latest_tag"
-          echo "latest_tag=$latest_tag" >> $GITHUB_ENV
+            - name: Fetch Latest Tags
+              run: |
+                  # Remove all local tags to avoid conflicts
+                  git tag -l | xargs -r git tag -d
 
-      # Step 3: Check for New Commits
-      - name: Check for New Commits
-        id: check_commits
-        run: |
-          # Fetch the latest commit and tag commit
-          latest_commit=$(git rev-parse HEAD)
+                  # Fetch and synchronize all tags
+                  git fetch --tags --force
 
-          if [ -z "${{ env.latest_tag }}" ]; then
-            echo "No previous tags found. Assuming new deployment required."
-            echo "skip_deployment=false" >> $GITHUB_ENV
-            exit 0
-          fi
+                  # Identify the latest tag
+                  latest_tag=$(git tag --list "v[0-9]*.[0-9]*.[0-9]*" | sort -V | tail -n 1)
 
-          tag_commit=$(git rev-list -n 1 ${{ env.latest_tag }})
+                  # Fallback if no tags exist
+                  if [ -z "$latest_tag" ]; then
+                    latest_tag="v0.0.0"
+                  fi
 
-          # Compare the latest commit with the tagged commit
-          if [ "$latest_commit" = "$tag_commit" ]; then
-            echo "No new commits since the last tag (${{ env.latest_tag }}). Exiting workflow successfully."
-            echo "skip_deployment=true" >> $GITHUB_ENV
-          else
-            echo "New commits detected. Proceeding with deployment."
-            echo "skip_deployment=false" >> $GITHUB_ENV
-          fi
+                  echo "Latest tag: $latest_tag"
+                  echo "latest_tag=$latest_tag" >> $GITHUB_ENV
 
-      # Step 4: Increment Version
-      - name: Increment Version
-        if: env.skip_deployment == 'false'
-        run: |
-          # Fetch all tags
-          git fetch --tags --force
-          
-          # Get the latest valid tag in vX.Y.Z format
-          latest_tag=$(git tag --list "v[0-9]*.[0-9]*.[0-9]*" | sort -V | tail -n 1)
-          if [ -z "$latest_tag" ]; then
-            latest_tag="v0.0.0"
-          fi
-          echo "Latest valid tag: $latest_tag"
+            - name: Check for New Commits
+              id: check_commits
+              run: |
+                  # Fetch the latest commit and tag commit
+                  latest_commit=$(git rev-parse HEAD)
 
-          # Strip the 'v' prefix for parsing
-          version="${latest_tag#v}"
+                  if [ -z "${{ env.latest_tag }}" ]; then
+                    echo "No previous tags found. Assuming new deployment required."
+                    echo "skip_deployment=false" >> $GITHUB_ENV
+                    exit 0
+                  fi
 
-          # Parse the major, minor, and patch components
-          IFS='.' read -r major minor patch <<< "$version"
+                  tag_commit=$(git rev-list -n 1 ${{ env.latest_tag }})
 
-          # Ensure default values for missing components
-          major=${major:-0}
-          minor=${minor:-0}
-          patch=${patch:-0}
+                  # Compare the latest commit with the tagged commit
+                  if [ "$latest_commit" = "$tag_commit" ]; then
+                    echo "No new commits since the last tag (${{ env.latest_tag }}). Exiting workflow successfully."
+                    echo "skip_deployment=true" >> $GITHUB_ENV
+                  else
+                    echo "New commits detected. Proceeding with deployment."
+                    echo "skip_deployment=false" >> $GITHUB_ENV
+                  fi
 
-          echo "Parsed version: major=$major, minor=$minor, patch=$patch"
+            - name: Setup pnpm
+              if: ${{ steps.check_commits.outputs.skip_deployment == 'false' }}
+              uses: pnpm/action-setup@v4
+              with:
+                  version: 9
 
-          # Increment the version based on input
-          if [ "${{ github.event.inputs.version_type || env.version_type }}" == "major" ]; then
-            major=$((major + 1))
-            minor=0
-            patch=0
-          elif [ "${{ github.event.inputs.version_type || env.version_type }}" == "minor" ]; then
-            minor=$((minor + 1))
-            patch=0
-          else
-            patch=$((patch + 1))
-          fi
+            - name: Setup Node ${{ matrix.node-version }}
+              if: ${{ steps.check_commits.outputs.skip_deployment == 'false' }}
+              uses: actions/setup-node@v3
+              with:
+                  node-version: ${{ matrix.node-version }}
+                  cache: 'pnpm'
 
-          # Construct the new tag
-          new_version="v$major.$minor.$patch"
-          echo "New version: $new_version"
+            - name: Setup .npmrc with secrets
+              if: ${{ steps.check_commits.outputs.skip_deployment == 'false' }}
+              run: |
+                  cp .npmrc.template .npmrc
+                  # replace placeholders with actual secrets
+                  sed -i "s|\${GITHUB_TOKEN}|${{ secrets.GITHUB_TOKEN }}|g" .npmrc
 
-          # Save the new version for later steps
-          echo "new_version=$new_version" >> $GITHUB_ENV
+            - name: pnpm Install
+              if: ${{ steps.check_commits.outputs.skip_deployment == 'false' }}
+              run: pnpm install
 
-      # Step 5: Create and Push New Tag
-      - name: Create and Push New Tag
-        if: env.skip_deployment == 'false'
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          # Use the new version from the previous step
-          new_version="${{ env.new_version }}"
-          echo "Creating and pushing new tag: $new_version"
+            - name: Build
+              if: ${{ steps.check_commits.outputs.skip_deployment == 'false' }}
+              run: NODE_OPTIONS=--max_old_space_size=8000 pnpm run build
+              env:
+                  VITE_SEGMENT_ANALYTICS_KEY: ${{ steps.get_segment_analytics_key.outputs.analytics_key }}
+                  VITE_LAUNCH_DARKLY_KEY: ${{ steps.get_launch_darkly_key.outputs.LD_key }}
+                  VITE_GRAFANA_FARO_KEY: ${{ steps.get_grafana_faro_key.outputs.FARO_key }}
+                  VITE_SENTRY_DSN: ${{ secrets.VITE_SENTRY_DSN }}
+                  VITE_USERFLOW_KEY: ${{ secrets.VITE_USERFLOW_KEY }}
+                  VITE_USERFLOW_WHITELISTED_DOMAINS: ${{ secrets.VITE_USERFLOW_WHITELISTED_DOMAINS }}
 
-          # Check if the tag already exists
-          if git rev-parse "$new_version" >/dev/null 2>&1; then
-            echo "Tag $new_version already exists. Skipping tag creation."
-            exit 0
-          fi
+            - name: Configure AWS Credentials
+              if: ${{ steps.check_commits.outputs.skip_deployment == 'false' }}
+              uses: aws-actions/configure-aws-credentials@v2
+              with:
+                  aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+                  aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+                  aws-region: ap-south-1
 
-          # Create and push the new tag
-          git tag $new_version
-          git push origin $new_version
-          echo "Published new tag: $new_version"
+            # - name: Empty static s3 bucket
+            #   run: aws s3 rm s3://$AWS_S3_BUCKET/$CHANNEL_NAME/frontend --recursive --region $AWS_REGION
+            #   env:
+            #     AWS_REGION: "us-east-1"
+            #     AWS_S3_BUCKET: ${{ secrets.AWS_S3_US_DEPLOYMENT_BUCKET }}
+            #     CHANNEL_NAME: ${{ steps.get_channel.outputs.channel }}
 
-      # Step 6: Generate Deployment Metadata
-      - name: Write Deployment Metadata
-        run: |
-          echo "{ \
-            \"commit\": \"$(git rev-parse HEAD)\", \
-            \"deployed_by\": \"github-actions[bot]\", \
-            \"deployed_at\": \"$(date -u +'%Y-%m-%dT%H:%M:%SZ')\", \
-            \"tag\": \"${{ env.new_version }}\", \
-            \"deployment_id\": \"$(date +'%Y%m%d-%H%M%S')\" \
-          }" > deployment-metadata.json
+            # Send a slack notification message on the specified channel with the failure github actions workflow report.
+            - name: Copy static site to S3 bucket
+              if: ${{ steps.check_commits.outputs.skip_deployment == 'false' }}
+              run: aws s3 cp ./dist s3://$AWS_S3_BUCKET/$CHANNEL_NAME/frontend --recursive --region $AWS_REGION
+              env:
+                  AWS_REGION: 'us-east-1'
+                  AWS_S3_BUCKET: ${{ secrets.AWS_S3_US_DEPLOYMENT_BUCKET }}
+                  CHANNEL_NAME: ${{ steps.get_channel.outputs.channel }}
 
-      # Step 7: Publish GitHub Release
-      - name: Publish GitHub Release
-        if: env.skip_deployment == 'false'
-        uses: actions/create-release@v1
-        with:
-          tag_name: ${{ env.new_version }}
-          release_name: "Release ${{ env.new_version }}"
-          generate_release_notes: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+            - name: Invalidate cache
+              if: ${{ steps.check_commits.outputs.skip_deployment == 'false' }}
+              run: |
+                  repo_branch=${{ steps.get_branch.outputs.branch }}
+                  if [[ "$repo_branch" == "beta" ]]; then
+                    aws cloudfront create-invalidation --distribution-id $CLOUDFRONT_BETA --paths "/*"
+                  elif [[ "$repo_branch" == "staging" ]]; then
+                    aws cloudfront create-invalidation --distribution-id $CLOUDFRONT_STAGING --paths "/*"
+                  elif [[ "$repo_branch" == "main" ]]; then
+                    aws cloudfront create-invalidation --distribution-id $CLOUDFRONT_MAIN --paths "/*"
+                  elif [[ "$repo_branch" == "development" ]]; then
+                    aws cloudfront create-invalidation --distribution-id $CLOUDFRONT_DEVELOPMENT --paths "/*"
+                  else
+                    echo "Build not configured for current branch"
+                    exit 1
+                  fi
+              env:
+                  CLOUDFRONT_BETA: ${{ secrets.CLOUDFRONT_DIST_BETA }}
+                  CLOUDFRONT_STAGING: ${{ secrets.CLOUDFRONT_DIST_STAGING }}
+                  CLOUDFRONT_MAIN: ${{ secrets.CLOUDFRONT_DIST_ACCESSCONTROL_MAIN }}
+                  CLOUDFRONT_DEVELOPMENT: ${{ secrets.CLOUDFRONT_DIST_DEVELOPMENT }}
 
-      # Step 8: Push Deployment Metadata to Logs Branch
-      # Step 8: Push Deployment Metadata to Logs Branch
-      - name: Generate and Push Deployment Metadata
-        if: env.skip_deployment == 'false'
-        run: |
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+            # Step 4: Increment Version
+            - name: Increment Version
+              if: ${{ steps.check_commits.outputs.skip_deployment == 'false' }}
+              run: |
+                  # Fetch all tags
+                  git fetch --tags --force
 
-          # Check if the metadata file exists and temporarily move it
-          if [ -f deployment-metadata.json ]; then
-            mv deployment-metadata.json deployment-metadata.json.bak
-          fi
+                  # Get the latest valid tag in vX.Y.Z format
+                  latest_tag=$(git tag --list "v[0-9]*.[0-9]*.[0-9]*" | sort -V | tail -n 1)
+                  if [ -z "$latest_tag" ]; then
+                    latest_tag="v0.0.0"
+                  fi
+                  echo "Latest valid tag: $latest_tag"
 
-          # Fetch the remote branch or create it locally
-          git fetch origin deployment-logs || echo "Branch does not exist remotely"
-          git checkout deployment-logs || git checkout -b deployment-logs
+                  # Strip the 'v' prefix for parsing
+                  version="${latest_tag#v}"
 
-          # Restore the metadata file after switching branches
-          if [ -f deployment-metadata.json.bak ]; then
-            mv deployment-metadata.json.bak deployment-metadata.json
-          fi
+                  # Parse the major, minor, and patch components
+                  IFS='.' read -r major minor patch <<< "$version"
+                  major=${major:-0}
+                  minor=${minor:-0}
+                  patch=${patch:-0}
 
-          # Stage only the deployment metadata file
-          git reset -- .
-          git add deployment-metadata.json
+                  echo "Parsed version: major=$major, minor=$minor, patch=$patch"
 
-          # Commit the changes
-          git commit -m "Track deployment of version ${{ env.new_version }}" || echo "No changes to commit"
+                  # Check if there's a commit matching the "Merge pull request #... from atlanhq/staging" pattern
+                  # We'll search the commit messages since the last tag
+                  if git log "${latest_tag}..HEAD" --pretty=%B | grep -q "Merge pull request #[0-9]\+ from atlanhq/staging"; then
+                    echo "Detected a staging merge commit. Performing a major bump."
+                    major=$((major + 1))
+                    minor=0
+                    patch=0
+                  else
+                    echo "No staging merge commit detected. Defaulting to a minor bump."
+                    minor=$((minor + 1))
+                    patch=0
+                  fi
 
-          # Push changes to the remote branch
-          git push origin deployment-logs --force-with-lease
+                  # Construct the new tag
+                  new_version="v$major.$minor.$patch"
+                  echo "New version: $new_version"
 
-      # Step 9: Output New Version
-      - name: Output New Version
-        if: env.skip_deployment == 'false'
-        run: echo "Successfully deployed version ${{ env.new_version }} to the CDN."
+                  # Save the new version for later steps
+                  echo "new_version=$new_version" >> $GITHUB_ENV
+
+            # Step 5: Create and Push New Tag
+            - name: Create and Push New Tag
+              if: ${{ steps.check_commits.outputs.skip_deployment == 'false' }}
+              env:
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+              run: |
+                  # Use the new version from the previous step
+                  new_version="${{ env.new_version }}"
+                  echo "Creating and pushing new tag: $new_version"
+
+                  # Check if the tag already exists
+                  if git rev-parse "$new_version" >/dev/null 2>&1; then
+                    echo "Tag $new_version already exists. Skipping tag creation."
+                    exit 0
+                  fi
+
+                  # Create and push the new tag
+                  git tag $new_version
+                  git push origin $new_version
+                  echo "Published new tag: $new_version"
+
+            # Step 6: Generate Deployment Metadata
+            - name: Write Deployment Metadata
+              if: ${{ steps.check_commits.outputs.skip_deployment == 'false' }}
+              run: |
+                  echo "{ \
+                    \"commit\": \"$(git rev-parse HEAD)\", \
+                    \"deployed_by\": \"github-actions[bot]\", \
+                    \"deployed_at\": \"$(date -u +'%Y-%m-%dT%H:%M:%SZ')\", \
+                    \"tag\": \"${{ env.new_version }}\", \
+                    \"deployment_id\": \"$(date +'%Y%m%d-%H%M%S')\" \
+                  }" > deployment-metadata.json
+
+            # Step 7: Publish GitHub Release
+            - name: Publish GitHub Release
+              if: ${{ steps.check_commits.outputs.skip_deployment == 'false' }}
+              uses: actions/create-release@v1
+              with:
+                  tag_name: ${{ env.new_version }}
+                  release_name: 'Release ${{ env.new_version }}'
+                  generate_release_notes: true
+              env:
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+            # Step 8: Push Deployment Metadata to Logs Branch
+            - name: Generate and Push Deployment Metadata
+              if: ${{ steps.check_commits.outputs.skip_deployment == 'false' }}
+              run: |
+                  git config --global user.name "github-actions[bot]"
+                  git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+                  # Check if the metadata file exists and temporarily move it
+                  if [ -f deployment-metadata.json ]; then
+                    mv deployment-metadata.json deployment-metadata.json.bak
+                  fi
+
+                  # Fetch the remote branch or create it locally
+                  git fetch origin deployment-logs || echo "Branch does not exist remotely"
+                  git checkout deployment-logs || git checkout -b deployment-logs
+
+                  # Restore the metadata file after switching branches
+                  if [ -f deployment-metadata.json.bak ]; then
+                    mv deployment-metadata.json.bak deployment-metadata.json
+                  fi
+
+                  # Stage only the deployment metadata file
+                  git reset -- .
+                  git add deployment-metadata.json
+
+                  # Commit the changes
+                  git commit -m "Track deployment of version ${{ env.new_version }}" || echo "No changes to commit"
+
+                  # Push changes to the remote branch
+                  git push origin deployment-logs --force-with-lease
+
+            # Step 9: Output New Version
+            - name: Output New Version
+              if: ${{ steps.check_commits.outputs.skip_deployment == 'false' }}
+              run: echo "Successfully deployed version ${{ env.new_version }} to the CDN."
+
+            # Send a slack notification message on the specified channel with the failure github actions workflow report.
+            - name: Slack notification
+              if: ${{ job.status == 'failure' && steps.check_commits.outputs.skip_deployment == 'false' }}
+              uses: 8398a7/action-slack@v3
+              with:
+                  status: ${{ job.status }}
+                  author_name: Github-Actions # default: 8398a7@action-slack
+                  fields: repo,commit,workflow,message,author,took # default: repo,commit
+                  text: '- @infra, Job ${{ job.status }} :rocket:'
+              env:
+                  SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }}
+
+            - name: Upload artifact
+              if: ${{ steps.check_commits.outputs.skip_deployment == 'false' }}
+              uses: actions/upload-artifact@v4
+              with:
+                  name: bundle-stats
+                  path: bundle-stats.json
+                  retention-days: 1
+
+    send-segment-event:
+        runs-on: ubuntu-latest
+        continue-on-error: true
+        needs: deploy
+        if: ${{ needs.deploy.outputs.skip_deployment == 'false' }}
+        steps:
+            - name: Download artifact
+              uses: actions/download-artifact@v4
+              with:
+                  name: bundle-stats
+                  path: .
+
+            - name: Read and Transform JSON
+              id: transform_json
+              run: |
+                  if [ -f bundle-stats.json ]; then
+                    JSON_CONTENT=$(cat bundle-stats.json)
+                    PROPERTIES=$(echo "$JSON_CONTENT" | jq -r '
+                      to_entries |
+                      map({key: (.value.name | gsub(" "; "_") | ascii_downcase), value: .value.value}) |
+                      from_entries
+                    ')
+                    echo "$PROPERTIES" > transformed_properties.json
+                  else
+                    echo '{}' > transformed_properties.json
+                    echo "No bundle-stats.json found, using empty properties."
+                  fi
+
+            - name: Fetch Pull Request Information
+              id: fetch_pr_info
+              env:
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+              run: |
+                  PR_RESPONSE=$(curl -s \
+                    -H "Authorization: token $GITHUB_TOKEN" \
+                    -H "Accept: application/vnd.github.v3+json" \
+                    "https://api.github.com/repos/${{ github.repository }}/commits/${{ github.sha }}/pulls")
+                  PR_NUMBER=$(echo "$PR_RESPONSE" | jq -r '.[0].number')
+                  echo "PR_NUMBER=$PR_NUMBER" >> $GITHUB_ENV
+                  if [ "$PR_NUMBER" != "null" ]; then
+                    PR_INFO=$(curl -s \
+                      -H "Authorization: token $GITHUB_TOKEN" \
+                      -H "Accept: application/vnd.github.v3+json" \
+                      "https://api.github.com/repos/${{ github.repository }}/pulls/$PR_NUMBER")
+                    PR_USER_EMAIL=$(echo "$PR_INFO" | jq -r '.user.email')
+                    echo "PR_USER_EMAIL=$PR_USER_EMAIL" >> $GITHUB_ENV
+                  else
+                    echo "No pull request found for the commit."
+                    echo "PR_USER_EMAIL=" >> $GITHUB_ENV
+                  fi
+
+            - name: Check Commit Author
+              id: check_author
+              run: |
+                  if [ "${{ github.actor }}" = "atlan-ci" ]; then
+                    echo "skip_segment_event=true" >> $GITHUB_ENV
+                  else
+                    echo "skip_segment_event=false" >> $GITHUB_ENV
+                  fi
+
+            - name: Send Segment Event
+              if: env.skip_segment_event == 'false'
+              env:
+                  SEGMENT_WRITE_KEY: ${{ secrets.SEGMENT_GITHUB_ACTION_KEY }}
+              run: |
+                  TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+                  TRANSFORMED_PROPERTIES=$(cat transformed_properties.json)
+                  ADDITIONAL_PROPERTIES=$(jq -n --arg branch_name "${{ github.ref_name }}" --arg commit_sha "${{ github.sha }}" --arg build_status "${{ needs.deploy.result }}" --arg repo_name "${{ github.repository }}" --arg pr_number "${{ env.PR_NUMBER }}" '{branch_name: $branch_name, commit_sha: $commit_sha, repo_name: $repo_name, pr_number: $pr_number, build_status: $build_status}')
+                  FINAL_PROPERTIES=$(jq -s '.[0] * .[1]' <(echo "$ADDITIONAL_PROPERTIES") <(echo "$TRANSFORMED_PROPERTIES"))
+                  ROOT_PROPERTIES=$(jq -n --arg event "github_action_event" --argjson properties "$FINAL_PROPERTIES" --arg timestamp "$TIMESTAMP" --arg type "track" --arg email "${{ env.PR_USER_EMAIL }}" --arg projectId "gLNk3vReKWhQ3dswutQpZd" --arg userId "${{ github.actor }}" '{event: $event, properties: $properties, timestamp: $timestamp, type: $type, email: $email, projectId: $projectId, userId: $userId}')
+                  curl -X POST https://api.segment.io/v1/track \
+                    -u "$SEGMENT_WRITE_KEY:" \
+                    -H "Content-Type: application/json" \
+                    -d "$ROOT_PROPERTIES"
+
+    sync-pr-creation:
+        runs-on: ubuntu-latest
+        needs: deploy
+        if: ${{ needs.deploy.outputs.skip_deployment == 'false' }}
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@v2
+
+            - name: Set up Git
+              run: |
+                  git config --global user.name 'github-actions[bot]'
+                  git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+
+            - name: Fetch staging branch
+              run: |
+                  git fetch origin staging:staging
+
+            - name: Check if staging is behind main and create PR if needed
+              id: pr1
+              run: |
+                  COMMITS_DIFF=$(git rev-list --left-right --count staging...main | awk '{print $2}')
+                  if [ "$COMMITS_DIFF" -gt 0 ]; then
+                    PR_EXISTS1=$(gh pr list --base staging --head main --state open --json id --jq '.[].id')
+                    if [ -z "$PR_EXISTS1" ]; then
+                      echo "Creating PR from main to staging..."
+                      gh pr create --base staging --head main --title "Merge ``main`` into ``staging``" --body "Automated PR sync from ``main`` to ``staging``"
+                    else
+                      echo "PR from main to staging already exists."
+                    fi
+                  else
+                    echo "staging is already up to date with main."
+                  fi
+              env:
+                  GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
