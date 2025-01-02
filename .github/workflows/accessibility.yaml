@@ -1,0 +1,89 @@
+name: Accessibility Audit
+
+on:
+  pull_request:
+    types:
+      - opened
+      - reopened
+      - synchronize
+    branches:
+      - master
+
+  workflow_dispatch:
+    inputs:
+      directory:
+        description: 'The directory to analyze'
+        required: false
+        default: './src/components/insights'
+
+jobs:
+  axe-linter:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code for pull_request
+        uses: actions/checkout@v3
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+        if: ${{ github.event_name == 'pull_request' }}
+      
+      - name: Checkout main branch for workflow_dispatch
+        uses: actions/checkout@v3
+        with:
+          ref: master
+        if: ${{ github.event_name == 'workflow_dispatch' }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '16'
+
+      - name: Install axe DevTools Linter
+        run: npm install -g axe-linter-connector
+
+      - name: Run Accessibility Linter
+        env:
+          AXE_LINTER_API_KEY: c51782c8-e5e8-49d5-8dbd-24e557efaffd
+        run: |
+          echo "Running axe DevTools Linter..."
+
+          # Ensure directory for reports exists
+          mkdir -p axe-linter-reports
+
+          # Determine the directory to analyze
+          DIRECTORY="${{ github.event.inputs.directory }}"
+          if [ -z "$DIRECTORY" ]; then
+            DIRECTORY='./src/components/insights'
+          fi
+
+          # Find and analyze specified file types in the provided directory
+          find "$DIRECTORY" -type f \( -name "*.vue" -o -name "*.js" -o -name "*.jsx" -o -name "*.ts" -o -name "*.tsx" \) -print0 |
+          while IFS= read -r -d '' file; do
+            echo "Analyzing: $file"
+            
+            # Run the linter and save output to a temporary file
+            TempFile=$(mktemp)
+            axe-linter-connector -s "$file" -d . --api-key $AXE_LINTER_API_KEY --url https://axe-linter.deque.com/ > "$TempFile"
+            
+            # Check if the report contains any issues
+            if grep -q "BUG" "$TempFile"; then
+              # Generate a report filename
+              FileName=$(basename "$file" | sed 's/[^a-zA-Z0-9._-]/_/g').json
+              ReportFile="axe-linter-reports/$FileName"
+              mv "$TempFile" "$ReportFile"
+              echo "Issues detected in $file. Report saved to $ReportFile."
+            else
+              echo "No issues found in $file."
+              rm "$TempFile"
+            fi
+          done
+
+      - name: Upload Reports
+        uses: actions/upload-artifact@v3
+        with:
+          name: accessibility-reports
+          path: axe-linter-reports/
+
+      - name: Clean up
+        if: always()
+        run: rm -rf axe-linter-reports
