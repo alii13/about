@@ -52,6 +52,11 @@ jobs:
                   cd axe-accessibility-audit
                   npm install
 
+            - name: Install Playwright browsers
+              run: |
+                  cd axe-accessibility-audit
+                  npx playwright install chromium
+
             - name: Set up Python
               uses: actions/setup-python@v5
               with:
