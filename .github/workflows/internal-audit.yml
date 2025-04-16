@@ -15,7 +15,7 @@ on:
             domain:
                 description: 'Base domain for the application'
                 required: true
-                default: 'develop.d2v3gatvj19pwm.amplifyapp.com/'
+                default: 'https://develop.d2v3gatvj19pwm.amplifyapp.com'
 
 permissions:
     contents: read # To read repository contents for auditing
