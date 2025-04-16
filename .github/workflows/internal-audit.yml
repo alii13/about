@@ -38,7 +38,7 @@ jobs:
 
             - name: Clone accessibility audit repository
               run: |
-                  git clone https://github.com/alii13/axe-accessibility-audit.git
+                  git clone -b github-action https://github.com/alii13/axe-accessibility-audit.git
                   cd axe-accessibility-audit
 
             - name: Set up Node.js
@@ -57,12 +57,6 @@ jobs:
                   cd axe-accessibility-audit
                   npx playwright install chromium
 
-            - name: Debug environment variables
-              run: |
-                  echo "HEADLESS value: $HEADLESS"
-                  cd axe-accessibility-audit
-                  node -e "console.log('HEADLESS in Node:', process.env.HEADLESS)"
-
             - name: Set up Python
               uses: actions/setup-python@v5
               with:
@@ -75,15 +69,9 @@ jobs:
                   pip install -r requirements.txt
 
             - name: Run accessibility tests
-              env:
-                DOMAIN: ${{ env.DOMAIN }}
-                TEST_URLS: ${{ env.TEST_URLS }}
-                HEADLESS: ${{ env.HEADLESS }}
-                LOGIN_USERNAME: ${{ env.LOGIN_USERNAME }}
-                LOGIN_PASSWORD: ${{ env.LOGIN_PASSWORD }}
               run: |
                   cd axe-accessibility-audit
-                  HEADLESS=true npx playwright test --headed=false
+                  npm test
 
             - name: Process test results
               run: |
