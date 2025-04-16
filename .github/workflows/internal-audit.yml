@@ -83,7 +83,7 @@ jobs:
                 LOGIN_PASSWORD: ${{ env.LOGIN_PASSWORD }}
               run: |
                   cd axe-accessibility-audit
-                  npm test
+                  HEADLESS=true npx playwright test --headed=false
 
             - name: Process test results
               run: |
