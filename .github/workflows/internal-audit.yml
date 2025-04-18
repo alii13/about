@@ -2,7 +2,7 @@ name: Internal Accessibility Audit
 
 on:
     schedule:
-        - cron: '0 0 * * 0' # Run weekly on Sunday at midnight
+        - cron: '0 6 * * 0' # Run weekly on Sunday at 11:30 AM IST
     workflow_dispatch: # Allow manual triggering
         inputs:
             urls:
@@ -11,11 +11,11 @@ on:
                 # Note: URLs should be relative paths from the domain
                 # The full URL will be constructed as: {domain}{url}
                 required: false
-                default: '/insights,/governance/requests'
+                default: ''
             domain:
                 description: 'Base domain for the application'
                 required: true
-                default: 'https://develop.d2v3gatvj19pwm.amplifyapp.com'
+                default: ''
 
 permissions:
     contents: read # To read repository contents for auditing
@@ -31,31 +31,60 @@ jobs:
             DOMAIN: ${{ github.event.inputs.domain }}
             TEST_URLS: ${{ github.event.inputs.urls || format('{0}/insights,{0}/about', github.event.inputs.domain) }}
             HEADLESS: 'true'
-            LOGIN_USERNAME: 'shekh@atlan.com'
-            LOGIN_PASSWORD: 'Qwzxqwzx123456#'
+            LOGIN_USERNAME: ${{ secrets.PREVIEW_USERNAME }} # preview.atlan.com - @atlansupport
+            LOGIN_PASSWORD: ${{ secrets.PREVIEW_PASSWORD }}
         steps:
             - uses: actions/checkout@v4
+
+            - name: Setup pnpm
+              uses: pnpm/action-setup@v4
+              with:
+                  version: 9
+
+            - name: Setup Node
+              uses: actions/setup-node@v4
+              with:
+                  node-version: 22
+                  cache: 'pnpm'
+
+            - name: Extract URLs and domain from urls.ts
+              id: extract-config
+              run: |
+                  if [ -z "${{ github.event.inputs.domain }}" ]; then
+                    # If no domain provided, read from urls.ts
+                    echo "Using domain from urls.ts"
+                    DOMAIN=$(node -e "const { DUMMY_DOMAIN } = require('./.github/constants/urls'); console.log(DUMMY_DOMAIN)")
+                  else
+                    # Use provided domain
+                    echo "Using provided domain"
+                    DOMAIN="${{ github.event.inputs.domain }}"
+                  fi
+                  echo "DOMAIN=$DOMAIN" >> $GITHUB_ENV
+
+                  if [ -z "${{ github.event.inputs.urls }}" ]; then
+                    # If no URLs provided, read from urls.ts
+                    echo "Using URLs from urls.ts"
+                    TEST_URLS=$(node -e "const urls = require('./.github/constants/urls').default; console.log(urls.join(','))")
+                  else
+                    # Use provided URLs
+                    echo "Using provided URLs"
+                    TEST_URLS="${{ github.event.inputs.urls }}"
+                  fi
+                  echo "TEST_URLS=$TEST_URLS" >> $GITHUB_ENV
 
             - name: Clone accessibility audit repository
               run: |
                   git clone -b github-action https://github.com/alii13/axe-accessibility-audit.git
                   cd axe-accessibility-audit
-
-            - name: Set up Node.js
-              uses: actions/setup-node@v4
-              with:
-                  node-version: '20'
-                  cache: 'npm'
-
-            - name: Install Node.js dependencies
-              run: |
-                  cd axe-accessibility-audit
-                  npm install
+                  # Remove any existing node_modules to ensure clean install
+                  rm -rf node_modules
+                  # Install dependencies in the correct directory
+                  pnpm install
 
             - name: Install Playwright browsers
               run: |
                   cd axe-accessibility-audit
-                  npx playwright install chromium
+                  pnpx playwright install chromium
 
             - name: Set up Python
               uses: actions/setup-python@v5
@@ -71,7 +100,8 @@ jobs:
             - name: Run accessibility tests
               run: |
                   cd axe-accessibility-audit
-                  npm test
+                  # Ensure we're in the correct directory and run the test
+                  pnpm test
 
             - name: Process test results
               run: |
